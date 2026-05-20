@@ -1,14 +1,19 @@
 package org.example;
 
 import javax.swing.*;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Timer;
 import java.util.TimerTask;
 
+/**
+ * 串口控制器类，负责处理串口通信的业务逻辑
+ * 作为MVC架构中的控制器，连接视图(SerialAppGUI)和模型(SerialService)
+ */
 public class SerialController {
+    // 视图对象，负责UI展示
     private final SerialAppGUI view;
+    // 模型对象，负责串口通信的核心功能
     private final SerialService model;
 
     // 透传模式下的防抖缓冲区和定时器
@@ -68,7 +73,7 @@ public class SerialController {
                 } else {
                     displayBuilder.append(new String(frame, StandardCharsets.UTF_8));
                 }
-                if (displayBuilder.length() > 0) {
+                if (!displayBuilder.isEmpty()) {
                     SwingUtilities.invokeLater(() ->
                             view.appendRecvText("[" + timestamp + " 接收响应]: " + displayBuilder.toString().trim() + "\n\n")
                     );

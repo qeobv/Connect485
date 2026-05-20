@@ -10,9 +10,12 @@ import java.io.OutputStream;
 import java.util.Timer;
 import java.util.TimerTask;
 
+/**
+ * 串口服务类，提供串口通信功能，支持Modbus RTU协议
+ */
 public class SerialService {
-    private SerialPort comPort;
-    private OutputStream outputStream;
+    private SerialPort comPort;                    // 串口对象
+    private OutputStream outputStream;            // 输出流
     private final ByteArrayOutputStream receiveBuffer = new ByteArrayOutputStream();
     private Timer readTimer;
     private DataListener dataListener;
@@ -165,7 +168,7 @@ public class SerialService {
             if (bufferData.length - i < 5) break; // 最短帧5字节
 
             int functionCode = bufferData[i + 1] & 0xFF;
-            int expectedFrameLength = 0;
+            int expectedFrameLength;
 
             if (functionCode > 0x80) {
                 // 1. 异常响应帧：固定5字节

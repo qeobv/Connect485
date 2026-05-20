@@ -3,20 +3,33 @@ package org.example;
 import javax.swing.*;
 import java.awt.*;
 
+/**
+ * 串口调试助手图形界面类
+ * 提供串口配置、数据发送和接收的GUI界面
+ * 支持HEX和ASCII两种数据格式，并包含CRC校验功能
+ */
 public class SerialAppGUI extends JFrame {
-    private JComboBox<String> portComboBox;
-    private JComboBox<String> baudRateComboBox;
-    private JButton btnOpenPort;
-    private JButton btnClosePort;
-    private JButton btnRefresh;
 
-    private JRadioButton rbSendHex;
-    private JRadioButton rbSendAscii;
-    private JTextArea txtSendData;
-    private JButton btnSend;
+    // 串口配置相关组件
+    private JComboBox<String> portComboBox;    // 串口选择下拉框
+    private JComboBox<String> baudRateComboBox; // 波特率选择下拉框
+    private JButton btnOpenPort;               // 打开串口按钮
+    private JButton btnClosePort;              // 关闭串口按钮
+    private JButton btnRefresh;                // 刷新端口按钮
 
-    private JRadioButton rbRecvHex;
-    private JRadioButton rbRecvAscii;
+
+
+    // 数据发送相关组件
+    private JRadioButton rbSendHex;           // HEX发送单选按钮
+    private JRadioButton rbSendAscii;         // ASCII发送单选按钮
+    private JTextArea txtSendData;            // 发送数据文本区域
+    private JButton btnSend;                  // 发送按钮
+
+
+
+    // 数据接收相关组件
+    private JRadioButton rbRecvHex;           // HEX显示单选按钮
+    private JRadioButton rbRecvAscii;         // ASCII显示单选按钮
     // 删除了 rbRecvRaw
     private JCheckBox chkEnableCrc; // 新增：是否启用CRC校验的复选框
     private JButton btnClearRecv;
