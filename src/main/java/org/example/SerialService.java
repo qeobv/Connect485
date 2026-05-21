@@ -168,7 +168,7 @@ public class SerialService {
             if (bufferData.length - i < 5) break; // 最短帧5字节
 
             int functionCode = bufferData[i + 1] & 0xFF;
-            int expectedFrameLength;
+            int expectedFrameLength; // 修复了此处的冗余初始化警告
 
             if (functionCode > 0x80) {
                 // 1. 异常响应帧：固定5字节
