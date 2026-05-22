@@ -2,11 +2,16 @@ package org.example;
 
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
+import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.Alert.AlertType;
 import javafx.stage.FileChooser;
+import javafx.stage.Stage;
 import javafx.stage.Window;
 
 import java.io.File;
@@ -237,11 +242,50 @@ public class SerialUIController implements Initializable {
         }
     }
 
-    // 新增按钮的点击事件（目前仅作界面占位，后续可扩展为打开新窗口等）
-    @FXML private void showHistory() { showAlert(AlertType.INFORMATION, "提示", "历史记录功能待实现"); }
-    @FXML private void showModifyPos() { showAlert(AlertType.INFORMATION, "提示", "修改位置记录功能待实现"); }
-    @FXML private void showModifyTorque() { showAlert(AlertType.INFORMATION, "提示", "修改过力矩记录功能待实现"); }
-    @FXML private void showCommand() { showAlert(AlertType.INFORMATION, "提示", "指令记录功能待实现"); }
+    private void openNewWindow(String fxmlPath, String title) {
+        try {
+            // 1. 加载 FXML 文件
+            FXMLLoader loader = new FXMLLoader(getClass().getResource(fxmlPath));
+            Parent root = loader.load();
+
+            // 2. 创建一个新的 Stage（窗口）
+            Stage newStage = new Stage();
+            newStage.setTitle(title);
+            newStage.setScene(new Scene(root));
+
+            // 可选：设置窗口的模态状态（如果需要阻塞主窗口，取消下面一行的注释）
+            // newStage.initModality(Modality.APPLICATION_MODAL);
+
+            // 3. 显示新窗口
+            newStage.show();
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            System.err.println("无法加载页面: " + fxmlPath);
+        }
+    }
+
+    // 以下是 MenuItem 绑定的点击事件
+    @FXML
+    private void showHistoryRecords(ActionEvent event) {
+        // 请确保 resources 目录下有对应的 fxml 文件
+        openNewWindow("/org/example/history_view.fxml", "历史记录");
+    }
+
+    @FXML
+    private void showPositionRecords(ActionEvent event) {
+        openNewWindow("/org/example/position_view.fxml", "修改位置记录");
+    }
+
+    @FXML
+    private void showTorqueRecords(ActionEvent event) {
+        openNewWindow("/org/example/torque_view.fxml", "修改过力矩记录");
+    }
+
+    @FXML
+    private void showCommandRecords(ActionEvent event) {
+        openNewWindow("/org/example/command_view.fxml", "指令记录");
+    }
 
     // ==========================================
     // 5. 内部逻辑与监听器设置

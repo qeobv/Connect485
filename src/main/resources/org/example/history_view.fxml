@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.layout.AnchorPane?>
+
+
+<AnchorPane prefHeight="400.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/26" xmlns:fx="http://javafx.com/fxml/1" fx:controller="org.example.CommonRecordController">
+   <children>
+      <Button layoutX="515.0" layoutY="344.0" mnemonicParsing="false" text="下载" />
+      <Button layoutX="425.0" layoutY="344.0" mnemonicParsing="false" text="刷新" />
+      <TextArea layoutX="38.0" layoutY="37.0" prefHeight="281.0" prefWidth="524.0" />
+   </children>
+</AnchorPane>

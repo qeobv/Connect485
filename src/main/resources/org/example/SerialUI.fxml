@@ -145,7 +145,7 @@
                                         <Font size="18.0" />
                                     </font>
                                 </Button>
-                                <Label prefHeight="42.0" prefWidth="203.0" style="-fx-font-weight: bold;" text="版本号: V1.0.0">
+                                <Label prefHeight="42.0" prefWidth="203.0" style="-fx-font-weight: bold;" text="版本号: V1.0.3">
                                     <font>
                                         <Font size="16.0" />
                                     </font>
@@ -161,10 +161,10 @@
                                 </CheckBox>
                                 <MenuButton id="menuRecords" mnemonicParsing="false" text="记录查看">
                                     <items>
-                                        <MenuItem mnemonicParsing="false" text="历史记录" />
-                                        <MenuItem mnemonicParsing="false" text="修改位置记录" />
-                                        <MenuItem mnemonicParsing="false" text="修改过力矩记录" />
-                                        <MenuItem mnemonicParsing="false" text="指令记录" />
+                                        <MenuItem mnemonicParsing="false" text="历史记录" onAction="#showHistoryRecords" />
+                                        <MenuItem mnemonicParsing="false" text="修改位置记录" onAction="#showPositionRecords" />
+                                        <MenuItem mnemonicParsing="false" text="修改过力矩记录" onAction="#showTorqueRecords" />
+                                        <MenuItem mnemonicParsing="false" text="指令记录" onAction="#showCommandRecords" />
                                     </items>
                                     <font>
                                         <Font size="18.0" />
