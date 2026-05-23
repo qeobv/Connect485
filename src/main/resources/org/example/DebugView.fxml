@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.CheckBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.RadioButton?>
+<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.control.ToggleGroup?>
+<?import javafx.scene.control.Tooltip?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<!--
+  调试界面 FXML: 底层通讯助手
+  职责：原始报文监视、手动发送Hex/ASCII指令、CRC校验控制
+  控制器绑定：org.example.DebugViewController
+-->
+<?import javafx.scene.control.Separator?>
+<BorderPane prefHeight="500.0" prefWidth="600.0"
+            xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="org.example.DebugViewController">
+
+    <!-- ========================================== -->
+    <!-- 顶部：标题提示                              -->
+    <!-- ========================================== -->
+    <top>
+        <VBox style="-fx-background-color: #e3f2fd; -fx-padding: 8 15 8 15;">
+            <Label text="⚠ 底层通讯调试模式" style="-fx-font-weight: bold; -fx-text-fill: #1565c0;" />
+            <Label text="此处显示的是未经翻译的原始收发报文" style="-fx-font-size: 11px; -fx-text-fill: #5e6f80;" />
+        </VBox>
+    </top>
+
+    <!-- ========================================== -->
+    <!-- 中心：原始数据接收区                         -->
+    <!-- ========================================== -->
+    <center>
+        <VBox spacing="5" BorderPane.alignment="CENTER">
+            <padding>
+                <Insets bottom="5.0" left="15.0" right="15.0" top="10.0" />
+            </padding>
+
+            <HBox alignment="CENTER_LEFT" spacing="10">
+                <Label style="-fx-font-weight: bold;" text="接收报文监视" />
+                <Button fx:id="btnClearDebugRecv" mnemonicParsing="false" onAction="#clearDebugRecv" text="清空接收区" />
+            </HBox>
+
+            <TextArea fx:id="txtDebugRecv" editable="false" prefHeight="300.0" wrapText="true"
+                      style="-fx-font-family: 'Consolas', 'Courier New', monospace; -fx-font-size: 13px; -fx-control-inner-background: #fafafa;" VBox.vgrow="ALWAYS">
+                <tooltip><Tooltip text="显示收到的原始Hex报文流" /></tooltip>
+            </TextArea>
+        </VBox>
+    </center>
+
+    <!-- ========================================== -->
+    <!-- 底部：发送区与控制选项                        -->
+    <!-- ========================================== -->
+    <bottom>
+        <VBox spacing="10" style="-fx-padding: 10 15 15 15;">
+
+            <!-- 格式与校验控制栏 -->
+            <HBox alignment="CENTER_LEFT" spacing="20">
+                <fx:define>
+                    <ToggleGroup fx:id="sendFormatGroup" />
+                </fx:define>
+
+                <Label text="发送格式:" />
+                <RadioButton fx:id="rbSendHex" mnemonicParsing="false" selected="true" text="HEX" toggleGroup="$sendFormatGroup">
+                    <tooltip><Tooltip text="以16进制格式发送 (如: 01 03 00 01)" /></tooltip>
+                </RadioButton>
+                <RadioButton mnemonicParsing="false" text="ASCII" toggleGroup="$sendFormatGroup" />
+
+                <Separator orientation="VERTICAL" />
+
+                <CheckBox fx:id="chkEnableCrc" mnemonicParsing="false" selected="true" text="追加Modbus CRC">
+                    <tooltip><Tooltip text="勾选后，发送时自动在尾部计算并追加2字节CRC校验码" /></tooltip>
+                </CheckBox>
+            </HBox>
+
+            <!-- 发送文本区 -->
+            <Label style="-fx-font-weight: bold;" text="数据发送区" />
+            <TextArea fx:id="txtSendData" prefHeight="80.0" wrapText="true"
+                      style="-fx-font-family: 'Consolas', 'Courier New', monospace; -fx-font-size: 13px;"
+                      promptText="请输入要发送的数据，HEX格式下请用空格分隔，如：01 03 00 01 00 0A" />
+
+            <!-- 发送操作栏 -->
+            <HBox alignment="CENTER_RIGHT" spacing="15">
+                <Button fx:id="btnImportData" mnemonicParsing="false" onAction="#importTxtData" text="导入报文" />
+                <Button fx:id="btnSend" mnemonicParsing="false" onAction="#sendData" prefWidth="120.0" style="-fx-base: #4CAF50; -fx-font-weight: bold;" text="发 送" />
+            </HBox>
+
+        </VBox>
+    </bottom>
+</BorderPane>

@@ -23,7 +23,7 @@ public class Main extends Application {
         primaryStage.setScene(scene);
 
         // 5. 设置窗口标题
-        primaryStage.setTitle("Java 串口调试助手 (支持CRC校验开关 - JavaFX版)");
+        primaryStage.setTitle("Java 串口调试助手 v1.1.0");
 
         // 6. 显示窗口
         primaryStage.show();
