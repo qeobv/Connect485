@@ -103,8 +103,8 @@ public class SerialManager {
                 int crc = Crc16Util.calculateCRC16(data, 0, data.length);
                 byte[] dataWithCrc = new byte[data.length + 2];
                 System.arraycopy(data, 0, dataWithCrc, 0, data.length);
-                dataWithCrc[data.length] = (byte) (crc & 0xFF);
-                dataWithCrc[data.length + 1] = (byte) ((crc >> 8) & 0xFF);
+                dataWithCrc[dataWithCrc.length - 2] = (byte) (crc & 0xFF);
+                dataWithCrc[dataWithCrc.length - 1] = (byte) ((crc >> 8) & 0xFF);
                 finalDataToSend = dataWithCrc;
             }
 
@@ -142,30 +142,82 @@ public class SerialManager {
 
     private void drainInputStream() {
         try {
+            // 1. 将底层串口数据持续读入 receiveBuffer
             while (comPort != null && comPort.isOpen() && comPort.bytesAvailable() > 0) {
                 byte[] buffer = new byte[comPort.bytesAvailable()];
                 int numRead = comPort.readBytes(buffer, buffer.length);
                 if (numRead > 0) {
                     receiveBuffer.write(buffer, 0, numRead);
+                    // 原始十六进制打印（只打印新收到的）
                     StringBuilder hexBuilder = new StringBuilder();
                     for (byte b : buffer) hexBuilder.append(String.format("%02X ", b));
                     broadcastRawData(hexBuilder.toString().trim());
                 }
             }
 
+            // 2. 尝试解析缓冲区里的数据
             if (receiveBuffer.size() > 0) {
-                byte[] dataSnapshot = receiveBuffer.toByteArray();
-                receiveBuffer.reset();
-
                 if (isCurrentCrcEnabled) {
-                    parseModbusFrame(dataSnapshot);
-                    startModbusFrameTimeout();
+                    tryParseModbusBuffer();
                 } else {
+                    byte[] dataSnapshot = receiveBuffer.toByteArray();
+                    receiveBuffer.reset(); // 非CRC模式直接清空
                     String timestamp = new SimpleDateFormat("HH:mm:ss.SSS").format(System.currentTimeMillis());
                     broadcastTranslatedData("[" + timestamp + " 接收(无CRC)]: " + new String(dataSnapshot, StandardCharsets.UTF_8));
                 }
             }
-        } catch (Exception e) { }
+        } catch (Exception e) { e.printStackTrace(); }
+    }
+
+    /**
+     * 核心修复：尝试解析缓冲区，根据解析结果消费有效数据
+     */
+    private void tryParseModbusBuffer() {
+        byte[] currentData = receiveBuffer.toByteArray();
+        if (currentData.length < 1) return;
+
+        // 计算期望的最小帧长度
+        int expectedFrameLength = calculateExpectedFrameLength(currentData);
+
+        // 情况1：数据还不够一个完整的帧长度，什么都不做，等待下次串口数据到来
+        if (expectedFrameLength > 0 && currentData.length < expectedFrameLength) {
+            startModbusFrameTimeout(); // 开启超时保护
+            return;
+        }
+
+        // 情况2：数据长度足够，交给帧解析器处理
+        int consumedBytes = parseModbusFrame(currentData);
+
+        // 情况3：解析器消费了部分/全部数据，将剩余数据写回缓冲区
+        if (consumedBytes > 0) {
+            byte[] remaining = new byte[currentData.length - consumedBytes];
+            System.arraycopy(currentData, consumedBytes, remaining, 0, remaining.length);
+            receiveBuffer.reset();
+            receiveBuffer.write(remaining, 0, remaining.length);
+
+            // 如果还剩数据，递归尝试继续解析（处理粘包）
+            if (remaining.length > 0) {
+                tryParseModbusBuffer();
+            } else {
+                // 数据刚好被完全消费，取消超时定时器
+                if (modbusFrameTimer != null) modbusFrameTimer.cancel();
+            }
+        }
+    }
+
+    /**
+     * 根据缓冲区头部数据，预判这一帧至少需要多少字节
+     */
+    private int calculateExpectedFrameLength(byte[] data) {
+        if (data.length < 2) return -1;
+        int funcCode = data[1] & 0xFF;
+        if (funcCode > 0x80) return 5; // 异常响应固定5字节
+        if (funcCode == 0x03) {
+            if (data.length < 3) return -1; // 还没读到字节数字段
+            int byteCount = data[2] & 0xFF;
+            return 3 + byteCount + 2;
+        }
+        return -1; // 未知功能码
     }
 
     private void startModbusFrameTimeout() {
@@ -177,18 +229,21 @@ public class SerialManager {
                 if (receiveBuffer.size() > 0) {
                     byte[] snapshot = receiveBuffer.toByteArray();
                     receiveBuffer.reset();
-                    parseModbusFrame(snapshot);
-
-                    if (receiveBuffer.size() > 0) {
-                        broadcastError("接收数据残留，可能存在CRC校验错误或非标准帧");
-                        receiveBuffer.reset();
-                    }
+                    // 超时强制作为残帧处理
+                    broadcastError("接收数据超时，可能存在残帧或CRC校验错误");
+                    String timestamp = new SimpleDateFormat("HH:mm:ss.SSS").format(System.currentTimeMillis());
+                    StringBuilder hex = new StringBuilder("[" + timestamp + " 残帧]: ");
+                    for (byte b : snapshot) hex.append(String.format("%02X ", b));
+                    broadcastTranslatedData(hex.toString());
                 }
             }
-        }, 50);
+        }, 100); // 100ms内如果下一截数据没来，判定为残帧
     }
 
-    private void parseModbusFrame(byte[] bufferData) {
+    /**
+     * 修改了返回值：返回成功消费(解析)了缓冲区中的多少个字节
+     */
+    private int parseModbusFrame(byte[] bufferData) {
         int i = 0;
         while (i < bufferData.length) {
             if (bufferData.length - i < 5) break;
@@ -205,7 +260,7 @@ public class SerialManager {
             }
 
             if (expectedFrameLength > 256 || expectedFrameLength < 5) {
-                i++;
+                i++; // 非法长度，跳过当前字节寻找下一个帧头
                 continue;
             }
 
@@ -222,21 +277,16 @@ public class SerialManager {
                         String timestamp = new SimpleDateFormat("HH:mm:ss.SSS").format(System.currentTimeMillis());
                         broadcastTranslatedData("[" + timestamp + " 接收]:\n" + translated);
                     }
-                    i += expectedFrameLength;
+                    i += expectedFrameLength; // 成功消费一帧
                 } else {
                     broadcastError("Modbus CRC校验失败");
-                    i++;
+                    i++; // 校验失败，跳过当前字节继续找
                 }
             } else {
-                break;
+                break; // 长度不够，等待下次拼接
             }
         }
-
-        if (i > 0 && i < bufferData.length) {
-            byte[] remaining = new byte[bufferData.length - i];
-            System.arraycopy(bufferData, i, remaining, 0, remaining.length);
-            receiveBuffer.write(remaining, 0, remaining.length);
-        }
+        return i; // 返回消费的字节数
     }
 
     private void broadcastRawData(String text) { for (SerialEventListener l : listeners) l.onRawData(text); }

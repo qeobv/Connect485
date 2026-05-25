@@ -11,6 +11,7 @@
 <?import javafx.scene.control.Tooltip?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Pane?>
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 
@@ -22,22 +23,37 @@
 
     <!-- 顶部：串口连接配置区域 -->
     <top>
-        <VBox spacing="10" style="-fx-background-color: #f4f4f4; -fx-padding: 10 15 10 15;">
-            <HBox alignment="CENTER_LEFT" spacing="15">
-                <Label text="串口:" />
-                <ComboBox fx:id="portComboBox" prefWidth="120.0" promptText="选择串口" />
+        <VBox prefHeight="49.0" prefWidth="900.0" spacing="10" style="-fx-background-color: #f4f4f4; -fx-padding: 10 15 10 15;">
+            <HBox alignment="CENTER_LEFT" prefHeight="39.0" prefWidth="869.0" spacing="15">
+                <Label text="串口:">
+               <font>
+                  <Font size="14.0" />
+               </font></Label>
+                <ComboBox fx:id="portComboBox" prefHeight="33.0" prefWidth="107.0" promptText="选择串口" />
 
-                <Label text="波特率:" />
-                <ComboBox fx:id="baudRateComboBox" prefWidth="100.0" promptText="波特率" />
+                <Label text="波特率:">
+               <font>
+                  <Font size="14.0" />
+               </font></Label>
+                <ComboBox fx:id="baudRateComboBox" prefHeight="30.0" prefWidth="101.0" promptText="波特率" />
 
                 <Button fx:id="btnRefresh" mnemonicParsing="false" onAction="#refreshPorts" text="刷新">
                     <tooltip><Tooltip text="刷新可用串口列表" /></tooltip>
+               <font>
+                  <Font size="14.0" />
+               </font>
                 </Button>
 
                 <Separator orientation="VERTICAL" />
 
-                <Button fx:id="btnOpenPort" mnemonicParsing="false" onAction="#openSerialPort" style="-fx-base: #4CAF50;" text="打开串口" />
-                <Button fx:id="btnClosePort" disable="true" mnemonicParsing="false" onAction="#closeSerialPort" style="-fx-base: #f44336;" text="关闭串口" />
+                <Button fx:id="btnOpenPort" mnemonicParsing="false" onAction="#openSerialPort" style="-fx-base: #4CAF50;" text="打开串口">
+               <font>
+                  <Font size="14.0" />
+               </font></Button>
+                <Button fx:id="btnClosePort" disable="true" mnemonicParsing="false" onAction="#closeSerialPort" style="-fx-base: #f44336;" text="关闭串口">
+               <font>
+                  <Font size="14.0" />
+               </font></Button>
 
                 <Separator orientation="VERTICAL" />
             </HBox>
@@ -46,41 +62,58 @@
 
     <!-- 底部：新增的快捷发送区域 -->
     <bottom>
-        <VBox prefHeight="320.0" prefWidth="900.0" spacing="8" style="-fx-padding: 10 15 15 15; -fx-background-color: #f9f9f9;">
-            <Label style="-fx-font-weight: bold;" />
+        <VBox prefHeight="278.0" prefWidth="900.0" spacing="8" style="-fx-padding: 10 15 15 15; -fx-background-color: #f9f9f9;">
              <Button fx:id="btnExportData" mnemonicParsing="false" onAction="#exportTxtData" prefHeight="57.0" prefWidth="134.0" text="导出业务数据">
             <font>
                <Font size="18.0" />
             </font>
          </Button>
-            <TextArea fx:id="txtSendData" prefHeight="201.0" prefWidth="869.0" promptText="输入要发送的HEX指令(如: 01 03 00 06 00 04)，默认带CRC校验" style="-fx-font-family: 'Consolas', monospace; -fx-font-size: 13px;" wrapText="true" />
-             <Button fx:id="btnImportData" mnemonicParsing="false" onAction="#importTxtData" text="导入报文" />
+            <TextArea fx:id="txtSendData" prefHeight="253.0" prefWidth="869.0" promptText="输入要发送的HEX指令(如: 01 03 00 06 00 04)，默认带CRC校验" style="-fx-font-family: 'Consolas', monospace; -fx-font-size: 13px;" wrapText="true" />
             <HBox alignment="CENTER_RIGHT" spacing="15">
-                <Button fx:id="btnSend" mnemonicParsing="false" onAction="#sendData" prefWidth="120.0" style="-fx-base: #4CAF50; -fx-font-weight: bold;" text="发 送" />
+                <Button fx:id="btnImportData" alignment="BOTTOM_LEFT" mnemonicParsing="false" onAction="#importTxtData" prefHeight="36.0" prefWidth="111.0" text="导入报文">
+               <font>
+                  <Font size="18.0" />
+               </font>
+            </Button>
+            <Pane prefHeight="36.0" prefWidth="627.0" />
+                <Button fx:id="btnSend" mnemonicParsing="false" onAction="#sendData" prefHeight="39.0" prefWidth="120.0" style="-fx-base: #4CAF50; -fx-font-weight: bold;" text="发 送">
+               <font>
+                  <Font size="18.0" />
+               </font>
+            </Button>
             </HBox>
         </VBox>
     </bottom>
    <left>
-        <VBox prefHeight="434.0" prefWidth="900.0" spacing="5" BorderPane.alignment="CENTER">
+        <VBox prefHeight="340.0" prefWidth="900.0" spacing="5" BorderPane.alignment="CENTER">
             <padding>
                 <Insets bottom="5.0" left="15.0" right="15.0" top="10.0" />
             </padding>
 
-               <HBox alignment="CENTER_LEFT" prefHeight="45.0" prefWidth="869.0" spacing="10">
+               <HBox alignment="CENTER_LEFT" prefHeight="33.0" prefWidth="869.0" spacing="10">
                 <Label style="-fx-font-weight: bold;" />
 
-                <MenuButton fx:id="menuRecords" mnemonicParsing="false" text="记录查看">
+                <MenuButton fx:id="menuRecords" mnemonicParsing="false" prefHeight="39.0" prefWidth="104.0" text="记录查看">
                     <items>
                         <MenuItem onAction="#showHistoryRecords" text="历史记录" />
                         <MenuItem onAction="#showPositionRecords" text="修改位置记录" />
                         <MenuItem onAction="#showTorqueRecords" text="修改过力矩记录" />
                         <MenuItem onAction="#showCommandRecords" text="指令记录" />
                     </items>
+               <font>
+                  <Font size="14.0" />
+               </font>
                 </MenuButton>
-                <Button fx:id="btnClearRecv" mnemonicParsing="false" onAction="#clearRecvText" text="清空显示" />
+                <Button fx:id="btnClearRecv" mnemonicParsing="false" onAction="#clearRecvText" prefHeight="39.0" prefWidth="84.0" text="清空显示">
+               <font>
+                  <Font size="14.0" />
+               </font></Button>
 
-                <Button fx:id="btnOpenDebug" mnemonicParsing="false" onAction="#openDebugWindow" style="-fx-base: #2196F3;" text="打开调试窗口">
+                <Button fx:id="btnOpenDebug" mnemonicParsing="false" onAction="#openDebugWindow" prefHeight="34.0" prefWidth="107.0" style="-fx-base: #2196F3;" text="打开调试窗口">
                     <tooltip><Tooltip text="打开底层通讯调试界面 (收发原始Hex)" /></tooltip>
+               <font>
+                  <Font size="14.0" />
+               </font>
                 </Button>
             </HBox>
    
