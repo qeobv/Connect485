@@ -68,7 +68,7 @@
                <Font size="18.0" />
             </font>
          </Button>
-            <TextArea fx:id="txtSendData" prefHeight="253.0" prefWidth="869.0" promptText="输入要发送的HEX指令(如: 01 03 00 06 00 04)，默认带CRC校验" style="-fx-font-family: 'Consolas', monospace; -fx-font-size: 13px;" wrapText="true" />
+            <TextArea fx:id="txtSendData" prefHeight="253.0" prefWidth="869.0" promptText="输入要发送的HEX指令(如: 01 03 00 06 00 04)，默认带CRC校验" style="-fx-font-family: 'Consolas', monospace; -fx-font-size: 16px;" wrapText="true" />
             <HBox alignment="CENTER_RIGHT" spacing="15">
                 <Button fx:id="btnImportData" alignment="BOTTOM_LEFT" mnemonicParsing="false" onAction="#importTxtData" prefHeight="36.0" prefWidth="111.0" text="导入报文">
                <font>
@@ -117,7 +117,7 @@
                 </Button>
             </HBox>
    
-                  <TextArea fx:id="txtRecvArea" editable="false" prefHeight="335.0" prefWidth="869.0" style="-fx-font-size: 14px; -fx-control-inner-background: #fdfdfd;" wrapText="true" VBox.vgrow="ALWAYS" />
+                  <TextArea fx:id="txtRecvArea" editable="false" prefHeight="335.0" prefWidth="869.0" style="-fx-font-size: 16px; -fx-control-inner-background: #fdfdfd;" wrapText="true" VBox.vgrow="ALWAYS" />
         </VBox>
    </left>
 </BorderPane>
