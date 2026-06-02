@@ -4,11 +4,10 @@
 <?import javafx.scene.control.TextArea?>
 <?import javafx.scene.layout.AnchorPane?>
 
-
 <AnchorPane prefHeight="400.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/26" xmlns:fx="http://javafx.com/fxml/1" fx:controller="org.example.CommonRecordController">
    <children>
-      <Button layoutX="531.0" layoutY="353.0" mnemonicParsing="false" text="下载" />
-      <Button layoutX="428.0" layoutY="353.0" mnemonicParsing="false" text="刷新" />
-      <TextArea layoutX="29.0" layoutY="40.0" prefHeight="293.0" prefWidth="541.0" />
+      <Button layoutX="540.0" layoutY="364.0" mnemonicParsing="false" text="下载" />
+      <Button layoutX="484.0" layoutY="364.0" mnemonicParsing="false" text="刷新" />
+      <TextArea layoutX="16.0" layoutY="16.0" prefHeight="337.0" prefWidth="564.0" />
    </children>
 </AnchorPane>

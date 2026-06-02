@@ -46,11 +46,11 @@
 
                 <Separator orientation="VERTICAL" />
 
-                <Button fx:id="btnOpenPort" mnemonicParsing="false" onAction="#openSerialPort" style="-fx-base: #4CAF50;" text="打开串口">
+                <Button fx:id="btnOpenPort" mnemonicParsing="false" onAction="#openSerialPort" style="-fx-base: #4CAF50;" text="连接串口">
                <font>
                   <Font size="14.0" />
                </font></Button>
-                <Button fx:id="btnClosePort" disable="true" mnemonicParsing="false" onAction="#closeSerialPort" style="-fx-base: #f44336;" text="关闭串口">
+                <Button fx:id="btnClosePort" disable="true" mnemonicParsing="false" onAction="#closeSerialPort" style="-fx-base: #f44336;" text="断开串口">
                <font>
                   <Font size="14.0" />
                </font></Button>

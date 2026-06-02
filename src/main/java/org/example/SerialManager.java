@@ -299,14 +299,24 @@ public class SerialManager {
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("导出数据");
         fileChooser.setInitialFileName(initialFileName);
-        fileChooser.getExtensionFilters().addAll(new FileChooser.ExtensionFilter("文本文件", "*.txt"));
+        // 【修改这里】将扩展名和描述改为 csv
+        fileChooser.getExtensionFilters().addAll(new FileChooser.ExtensionFilter("CSV文件", "*.csv"));
         File file = fileChooser.showSaveDialog(ownerWindow);
         if (file != null) {
-            try { Files.writeString(file.toPath(), content, StandardCharsets.UTF_8); return true; }
+            try {
+                // 【增加 BOM 头】这是让 Excel 正确识别 UTF-8 编码 CSV 文件不乱码的秘诀
+                byte[] bom = new byte[]{(byte) 0xEF, (byte) 0xBB, (byte) 0xBF};
+                java.io.FileOutputStream fos = new java.io.FileOutputStream(file);
+                fos.write(bom);
+                fos.write(content.getBytes(StandardCharsets.UTF_8));
+                fos.close();
+                return true;
+            }
             catch (IOException e) { broadcastError("导出失败: " + e.getMessage()); return false; }
         }
         return false;
     }
+
 
     public String importTextData(Window ownerWindow) {
         FileChooser fileChooser = new FileChooser();
