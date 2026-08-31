@@ -8,6 +8,7 @@
 <?import javafx.scene.control.MenuItem?>
 <?import javafx.scene.control.Separator?>
 <?import javafx.scene.control.TextArea?>
+<?import javafx.scene.control.TextField?>
 <?import javafx.scene.control.Tooltip?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.HBox?>
@@ -24,7 +25,7 @@
     <!-- 顶部：串口连接配置区域 -->
     <top>
         <VBox prefHeight="49.0" prefWidth="900.0" spacing="10" style="-fx-background-color: #f4f4f4; -fx-padding: 10 15 10 15;">
-            <HBox alignment="CENTER_LEFT" prefHeight="39.0" prefWidth="869.0" spacing="15">
+            <HBox alignment="CENTER_LEFT" prefHeight="58.0" prefWidth="869.0" spacing="15">
                 <Label text="串口:">
                <font>
                   <Font size="14.0" />
@@ -45,18 +46,33 @@
                 </Button>
 
                 <Separator orientation="VERTICAL" />
-
-                <Button fx:id="btnOpenPort" mnemonicParsing="false" onAction="#openSerialPort" style="-fx-base: #4CAF50;" text="连接串口">
-               <font>
-                  <Font size="14.0" />
-               </font></Button>
-                <Button fx:id="btnClosePort" disable="true" mnemonicParsing="false" onAction="#closeSerialPort" style="-fx-base: #f44336;" text="断开串口">
-               <font>
-                  <Font size="14.0" />
-               </font></Button>
+            <ComboBox fx:id="baudRateComboBox1" prefHeight="29.0" prefWidth="74.0" promptText="型号" />
 
                 <Separator orientation="VERTICAL" />
             </HBox>
+         <HBox prefHeight="100.0" prefWidth="200.0">
+            <children>
+               <Label prefHeight="29.0" prefWidth="81.0" text="设备地址:">
+                  <font>
+                     <Font size="14.0" />
+                  </font>
+               </Label>
+               <TextField prefHeight="29.0" prefWidth="75.0" />
+               <Pane prefHeight="29.0" prefWidth="18.0" />
+      
+                   <Button fx:id="btnOpenPort" mnemonicParsing="false" onAction="#openSerialPort" prefHeight="29.0" prefWidth="76.0" style="-fx-base: #4CAF50;" text="连接串口">
+                  <font>
+                     <Font size="14.0" />
+                  </font>
+               </Button>
+               <Pane prefHeight="29.0" prefWidth="19.0" />
+                   <Button fx:id="btnClosePort" disable="true" mnemonicParsing="false" onAction="#closeSerialPort" prefHeight="29.0" prefWidth="89.0" style="-fx-base: #f44336;" text="断开串口">
+                  <font>
+                     <Font size="14.0" />
+                  </font>
+               </Button>
+            </children>
+         </HBox>
         </VBox>
     </top>
 
@@ -117,7 +133,7 @@
                 </Button>
             </HBox>
    
-                  <TextArea fx:id="txtRecvArea" editable="false" prefHeight="335.0" prefWidth="869.0" style="-fx-font-size: 16px; -fx-control-inner-background: #fdfdfd;" wrapText="true" VBox.vgrow="ALWAYS" />
+                  <TextArea fx:id="txtRecvArea" editable="false" prefHeight="335.0" prefWidth="726.0" style="-fx-font-size: 16px; -fx-control-inner-background: #fdfdfd;" wrapText="true" VBox.vgrow="ALWAYS" />
         </VBox>
    </left>
 </BorderPane>

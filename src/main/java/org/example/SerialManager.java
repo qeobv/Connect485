@@ -41,6 +41,8 @@ public class SerialManager {
     public void addListener(SerialEventListener listener) { listeners.add(listener); }
     public void removeListener(SerialEventListener listener) { listeners.remove(listener); }
 
+    private final ProtocolTranslationManager translationManager = ProtocolTranslationManager.getInstance();
+
     public interface SerialEventListener {
         void onRawData(String rawHex);
         void onTranslatedData(String translatedText);
@@ -260,7 +262,7 @@ public class SerialManager {
             }
 
             if (expectedFrameLength > 256 || expectedFrameLength < 5) {
-                i++; // 非法长度，跳过当前字节寻找下一个帧头
+                i++;
                 continue;
             }
 
@@ -269,24 +271,25 @@ public class SerialManager {
                 System.arraycopy(bufferData, i, completeFrame, 0, expectedFrameLength);
 
                 if (Crc16Util.verifyCRC16(completeFrame, 0, expectedFrameLength)) {
-                    byte[] pureData = new byte[expectedFrameLength - 2];
-                    System.arraycopy(completeFrame, 0, pureData, 0, expectedFrameLength - 2);
+             //       byte[] pureData = new byte[expectedFrameLength - 2];
+             //       System.arraycopy(completeFrame, 0, pureData, 0, expectedFrameLength - 2);
 
-                    String translated = ModbusUtils.parseModbusFrame(pureData);
+                    // 使用ModbusUtils处理所有功能码
+                    String translated = ModbusUtils.parseModbusFrame(completeFrame);
                     if (translated != null && !translated.isEmpty()) {
                         String timestamp = new SimpleDateFormat("HH:mm:ss.SSS").format(System.currentTimeMillis());
                         broadcastTranslatedData("[" + timestamp + " 接收]:\n" + translated);
                     }
-                    i += expectedFrameLength; // 成功消费一帧
+                    i += expectedFrameLength;
                 } else {
                     broadcastError("Modbus CRC校验失败");
-                    i++; // 校验失败，跳过当前字节继续找
+                    i++;
                 }
             } else {
-                break; // 长度不够，等待下次拼接
+                break;
             }
         }
-        return i; // 返回消费的字节数
+        return i;
     }
 
     private void broadcastRawData(String text) { for (SerialEventListener l : listeners) l.onRawData(text); }

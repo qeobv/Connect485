@@ -10,7 +10,6 @@ public class ModbusUtils {
     public static void setLastRequestAddress(int address) {
         lastRequestAddress = address;
     }
-
     public static int getLastRequestAddress() {
         return lastRequestAddress;
     }
@@ -18,6 +17,8 @@ public class ModbusUtils {
     /**
      * 解析 Modbus RTU 完整响应帧
      */
+    private static final ProtocolTranslationManager translationManager = ProtocolTranslationManager.getInstance();
+
     public static String parseModbusFrame(byte[] frame) {
         if (frame == null || frame.length < 3) return "数据长度过短，无法解析";
 
@@ -26,6 +27,12 @@ public class ModbusUtils {
         if (funcCode > 0x80) {
             int errCode = frame[2] & 0xFF;
             return "Modbus异常响应，错误码: 0x" + String.format("%02X", errCode);
+        }
+
+        // 功能码64的特殊处理
+        if (funcCode == 0x64) {
+            String hexData = bytesToHex(frame);
+            return translationManager.translate(hexData);
         }
 
         if (funcCode == 0x03) {
@@ -66,6 +73,14 @@ public class ModbusUtils {
         }
 
         return null;
+    }
+
+    private static String bytesToHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes) {
+            sb.append(String.format("%02X ", b));
+        }
+        return sb.toString().trim();
     }
 
     public static void parseSendDataToUpdateAddress(byte[] sendData) {

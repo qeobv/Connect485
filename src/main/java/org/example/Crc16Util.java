@@ -24,6 +24,50 @@ public class Crc16Util {
         return crc;
     }
 
+    private static final int[] TABLE = new int[256];
+    static {
+        for (int i = 0; i < 256; i++) {
+            int crc = i;
+            for (int j = 0; j < 8; j++) {
+                if ((crc & 1) == 1) {
+                    crc = (crc >> 1) ^ 0xA001; // 0xA001 是反转后的标准多项式
+                } else {
+                    crc >>= 1;
+                }
+            }
+            TABLE[i] = crc & 0xFFFF;
+        }
+    }
+
+    /**
+     * 分块的内部数据计算CRC16
+     * 该方法用于计算给定字节数组的CRC16校验值
+     * @param dt 需要计算CRC校验的字节数组
+     * @param len 字节数组的长度
+     * @return 返回计算得到的CRC16校验值
+     */
+    public static int crc16(byte[] dt, int len) {
+        // 1. 先判断是否全零（对应 C 语言的外层循环检测）
+        boolean allZero = true;
+        for (int i = 0; i < len; i++) {
+            if (dt[i] != 0) {
+                allZero = false;
+                break;
+            }
+        }
+        if (allZero) {
+            return 0xFFFF;
+        }
+
+        // 2. 标准 CRC 单次循环计算全部字节
+        int res = 0;
+        for (int i = 0; i < len; i++) {
+            int index = (dt[i] & 0xFF) ^ (res & 0xFF);
+            res = TABLE[index] ^ (res >> 8);
+        }
+        return res & 0xFFFF;
+    }
+
 /**
  * 验证数据的CRC16校验值是否正确
  * @param data 包含数据和CRC校验值的字节数组

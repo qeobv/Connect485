@@ -84,17 +84,24 @@ public class ModbusProtocolMap {
         addBitReg(1, 0, "阀门正在开");
         addBitReg(1, 1, "阀门正在关");
         addBitReg(1, 2, "阀门停止");
-        addBitReg(2, 1, "相序异常[故障]");
-        addBitReg(2, 2, "4-20mA无输入[故障]");
-        addBitReg(2, 3, "C相断线[故障]");
-        addBitReg(2, 4, "电机过温[故障]");
-        addBitReg(2, 5, "位置传感器异常[故障]");
-        addBitReg(2, 8, "开关堵转[故障]");
-        addBitReg(2, 9, "开关拒动[故障]");
-        addBitReg(2, 10,"开阀过力矩[故障]");
-        addBitReg(2, 11,"关阀过力矩[故障]");
-        addBitReg(2, 12,"随动异常[故障]");
-        addBitReg(2, 13,"反向运行[故障]");
+        addBitReg(1, 3, "ESD");
+
+        addBitReg(2, 0, "主电源断电[故障]");
+        addBitReg(2, 1, "超级电容异常[故障]");
+        addBitReg(2, 2, "电机过热[故障]");
+        addBitReg(2, 3, "电源模块过热[故障]");
+        addBitReg(2, 4, "电容箱体过热[故障]");
+        addBitReg(2, 5, "自检失败[故障]");
+        addBitReg(2, 6, "电机驱动器异常[故障]");
+        addBitReg(2, 7, "电机hall异常[故障]");
+        addBitReg(2, 8, "位置传感器通信异常[故障]");
+        addBitReg(2, 9, "4-20mA断线[故障]");
+        addBitReg(2, 10,"电机堵转[故障]");
+        addBitReg(2, 11,"电机拒动[故障]");
+        addBitReg(2, 12,"反向运行[故障]");
+        addBitReg(2, 13,"开过力矩[故障]");
+        addBitReg(2, 14,"关过力矩[故障]");
+        addBitReg(2, 15,"传动异常[故障]");
 
         // --- 数字量输出 (位操作) ---
         addBitReg(3, 0, "阀门全开[控制]");

@@ -23,15 +23,15 @@ public class SerialUIController implements Initializable {
     // ==========================================
     // 1. 控件注入
     // ==========================================
-    @FXML private ComboBox<String> portComboBox;
-    @FXML private ComboBox<String> baudRateComboBox;
-    @FXML private Button btnOpenPort;
-    @FXML private Button btnClosePort;
-    @FXML private Button btnRefresh;
-    @FXML private Button btnClearRecv;
-    @FXML private Button btnExportData;
-    @FXML private Button btnOpenDebug;
-    @FXML private MenuButton menuRecords;
+    @FXML private ComboBox<String> portComboBox;          // 串口选择下拉框
+    @FXML private ComboBox<String> baudRateComboBox;      // 波特率选择下拉框
+    @FXML private Button btnOpenPort;                    // 打开串口按钮
+    @FXML private Button btnClosePort;                   // 关闭串口按钮
+    @FXML private Button btnRefresh;                     // 刷新串口按钮
+    @FXML private Button btnClearRecv;                   // 清空接收区按钮
+    @FXML private Button btnExportData;                  // 导出数据按钮
+    @FXML private Button btnOpenDebug;                   // 打开调试窗口按钮
+    @FXML private MenuButton menuRecords;                // 记录菜单按钮
 
     @FXML private TextArea txtRecvArea;        // 翻译结果展示区
     @FXML private TextArea txtSendData;        // 新增：快捷发送区
@@ -39,9 +39,12 @@ public class SerialUIController implements Initializable {
     @FXML private Button btnSend;              // 新增：发送按钮
 
     // ==========================================
-    // 2. 核心引擎引用
+    // 2. 核心引擎引用及配置
     // ==========================================
     private SerialManager manager;
+
+     //串口连接成功后自动发送的初始化指令 (HEX格式，请根据实际业务修改，例如读取设备状态的指令)
+    private static final String INIT_COMMAND = "01 64 00 00 00 00 00";
 
     // ==========================================
     // 3. 初始化
@@ -110,6 +113,9 @@ public class SerialUIController implements Initializable {
             btnClosePort.setDisable(false);
             portComboBox.setDisable(true);
             baudRateComboBox.setDisable(true);
+
+            // 串口连接成功后，自动发送初始化指令
+         //   sendHexCommand(INIT_COMMAND);
         } else {
             showAlert(Alert.AlertType.ERROR, "错误", "串口打开失败！可能被占用。");
         }
@@ -140,7 +146,9 @@ public class SerialUIController implements Initializable {
             return;
         }
 
-        String fileName = "业务翻译数据_" + System.currentTimeMillis() + ".txt";
+        String currentTime = java.time.LocalDateTime.now()
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+        String fileName = "主页面系统数据_" + currentTime + ".csv";
         boolean success = manager.exportTextData(content, fileName, btnExportData.getScene().getWindow());
 
         if (success) {
@@ -169,18 +177,31 @@ public class SerialUIController implements Initializable {
         String input = txtSendData.getText().trim();
         if (input.isEmpty()) return;
 
+        // 调用抽取出的核心发送方法
+        sendHexCommand(input);
+    }
+
+    /**
+     * 核心发送方法：解析HEX字符串并发生成字节流发送
+     * @param hexStr 符合HEX格式的字符串（可带空格或换行）
+     */
+    private void sendHexCommand(String hexStr) {
+        if (hexStr == null || hexStr.trim().isEmpty()) {
+            return;
+        }
+
         try {
             // 主界面发送区强制按 HEX 格式解析
-            String hexStr = input.replace(" ", "").replace("\n", "").replace("\r", "");
-            if (hexStr.length() % 2 != 0) {
+            String cleanHex = hexStr.replace(" ", "").replace("\n", "").replace("\r", "");
+            if (cleanHex.length() % 2 != 0) {
                 showAlert(Alert.AlertType.ERROR, "格式错误", "HEX格式错误，长度必须为偶数！");
                 return;
             }
 
-            byte[] dataToSend = new byte[hexStr.length() / 2];
+            byte[] dataToSend = new byte[cleanHex.length() / 2];
             for (int i = 0; i < dataToSend.length; i++) {
-                int high = Character.digit(hexStr.charAt(i * 2), 16);
-                int low = Character.digit(hexStr.charAt(i * 2 + 1), 16);
+                int high = Character.digit(cleanHex.charAt(i * 2), 16);
+                int low = Character.digit(cleanHex.charAt(i * 2 + 1), 16);
                 if (high == -1 || low == -1) {
                     showAlert(Alert.AlertType.ERROR, "格式错误", "包含非HEX字符，请检查输入！");
                     return;
