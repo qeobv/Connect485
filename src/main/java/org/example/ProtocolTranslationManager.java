@@ -24,7 +24,10 @@ public class ProtocolTranslationManager {
      * @param hexData 输入的十六进制数据字符串
      * @return 转换后的协议数据字符串
      */
-    public String translate(String hexData) {
+    public String translateFull(String hexData) {
         return DeviceProtocolTranslator.translateFullPacket(hexData);
+    }
+    public String translatePart(String hexData) {
+        return DeviceProtocolTranslator.translatePartPacket(hexData);
     }
 }

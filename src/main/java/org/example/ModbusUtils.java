@@ -32,7 +32,11 @@ public class ModbusUtils {
         // 功能码64的特殊处理
         if (funcCode == 0x64) {
             String hexData = bytesToHex(frame);
-            return translationManager.translate(hexData);
+            return translationManager.translateFull(hexData);
+        }
+        if (funcCode == 0x66) {
+            String hexData = bytesToHex(frame);
+            return translationManager.translatePart(hexData);
         }
 
         if (funcCode == 0x03) {
