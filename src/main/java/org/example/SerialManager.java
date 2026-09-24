@@ -26,9 +26,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public class SerialManager {
 
     private static final SerialManager INSTANCE = new SerialManager();
-    public static SerialManager getInstance() { return INSTANCE; }
     private SerialManager() {}
-
+    private static SerialManager instance;
+    private SerialEventListener listener;
+    private DataFilter dataFilter;  // 添加数据过滤器接口
     private SerialPort comPort;
     private OutputStream outputStream;
     private final ByteArrayOutputStream receiveBuffer = new ByteArrayOutputStream();
@@ -49,6 +50,47 @@ public class SerialManager {
         void onSystemLog(String log);
         void onError(String error);
     }
+    // 单例模式获取实例
+    public static SerialManager getInstance() {
+        if (instance == null) {
+            instance = new SerialManager();
+        }
+        return instance;
+    }
+
+    // 数据过滤器接口
+    public interface DataFilter {
+        boolean shouldProcess(String data);
+    }
+
+    // 在 SerialManager 类中添加更严格的过滤逻辑
+    public void setDataFilter(DataFilter filter) {
+        this.dataFilter = data -> {
+            // 首先检查基本过滤条件
+            if (!filter.shouldProcess(data)) {
+                return false;
+            }
+            // 额外检查数据格式
+            return data.matches("01 6[45][0-9A-Fa-f ]*");
+        };
+    }
+
+
+    // 修改数据分发方法，添加过滤逻辑
+    private void distributeData(String rawData, String translatedData, String systemLog, String error) {
+        if (listener != null) {
+            // 如果设置了过滤器且数据不符合过滤条件，则跳过
+            if (dataFilter != null && !dataFilter.shouldProcess(rawData)) {
+                return;
+            }
+            listener.onRawData(rawData);
+            listener.onTranslatedData(translatedData);
+            listener.onSystemLog(systemLog);
+            listener.onError(error);
+        }
+    }
+
+    // 获取可用串口列表
 
     public String[] getAvailablePorts() {
         SerialPort[] ports = SerialPort.getCommPorts();

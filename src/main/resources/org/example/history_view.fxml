@@ -1,13 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.scene.control.Button?>
-<?import javafx.scene.control.TextArea?>
-<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
 
-<AnchorPane prefHeight="391.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/26" xmlns:fx="http://javafx.com/fxml/1" fx:controller="org.example.CommonRecordController">
+<VBox xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="org.example.HistoryRecordController">
    <children>
-      <Button layoutX="546.0" layoutY="355.0" mnemonicParsing="false" text="下载" />
-      <Button layoutX="494.0" layoutY="355.0" mnemonicParsing="false" text="刷新" />
-      <TextArea layoutX="21.0" layoutY="17.0" prefHeight="329.0" prefWidth="561.0" />
+      <TableView fx:id="recordTable" VBox.vgrow="ALWAYS">
+         <columns>
+            <TableColumn fx:id="timeColumn" prefWidth="150" text="时间"/>
+            <TableColumn fx:id="contentColumn" prefWidth="400" text="内容"/>
+         </columns>
+      </TableView>
+      <HBox spacing="10" alignment="CENTER_RIGHT">
+         <Button onAction="#onRefreshAction" text="刷新"/>
+         <Button onAction="#onDownloadAction" text="下载"/>
+         <Button onAction="#onCloseAction" text="关闭"/>
+      </HBox>
    </children>
-</AnchorPane>
+</VBox>

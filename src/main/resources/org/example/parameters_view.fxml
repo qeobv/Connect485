@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Pane?>
+<?import javafx.scene.layout.VBox?>
+
+<VBox spacing="15" xmlns="http://javafx.com/javafx/26" xmlns:fx="http://javafx.com/fxml/1" fx:controller="org.example.ParametersView">
+   <padding>
+      <Insets bottom="15" left="15" right="15" top="15" />
+   </padding>
+
+   <!-- 控制按钮区域 -->
+   <HBox alignment="CENTER" spacing="10">
+      <Button fx:id="btnRefresh" onAction="#handleRefresh" prefHeight="29.0" prefWidth="80" text="刷新" />
+      <Button fx:id="btnClear" onAction="#handleClear" prefHeight="30.0" prefWidth="80" text="清空" />
+      <Pane prefHeight="23.0" prefWidth="486.0" />
+   </HBox>
+
+   <!-- 文本框区域 -->
+   <TextArea fx:id="txtParameters" prefHeight="379.0" prefWidth="696.0" style="-fx-font-size: 14;" wrapText="true" />
+
+   <!-- 操作按钮区域 -->
+   <HBox alignment="CENTER" spacing="15">
+      <Button fx:id="btnDownload" onAction="#handleDownload" prefHeight="19.0" prefWidth="106.0" text="下载配置" />
+      <Pane prefHeight="0.0" prefWidth="566.0" />
+   </HBox>
+   <TextArea fx:id="txtParameters1" prefHeight="164.0" prefWidth="696.0" style="-fx-font-size: 14;" wrapText="true" />
+   <HBox alignment="CENTER" prefHeight="34.0" prefWidth="696.0" spacing="15">
+      <children>
+         <Button fx:id="btnUpload" onAction="#handleUpload" prefHeight="35.0" prefWidth="87.0" text="上传配置" />
+         <Pane prefHeight="34.0" prefWidth="505.0" />
+         <Button fx:id="btnUpload1" onAction="#handleSend" prefHeight="33.0" prefWidth="91.0" text="发送" />
+
+      </children>
+   </HBox>
+</VBox>

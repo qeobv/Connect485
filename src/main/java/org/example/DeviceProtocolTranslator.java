@@ -13,6 +13,9 @@ public class DeviceProtocolTranslator {
     private static int[] alarmData = null;
     private static int[] superData = null;
     private static int[] partData = null;
+    // 新增：存储完整的十六进制数据
+    private static String fullHexData = "";
+
 
     // ================= 枚举映射定义 =================
     private static final Map<Integer, String> SIGN_TYPE_MAP = Map.of(
@@ -146,6 +149,8 @@ public class DeviceProtocolTranslator {
                 sb.append("⚠️ Modbus整包CRC校验失败！\n");
             } else {
                 sb.append("✔️ Modbus整包CRC校验通过\n");
+                // 在校验通过后保存完整数据
+                fullHexData = cleanHex;
             }
 
             // 5. 提取应用层总数据区 (跳过前3个字节即6个字符)
@@ -206,6 +211,21 @@ public class DeviceProtocolTranslator {
             return "解析异常: " + e.getMessage();
         }
     }
+
+    /**
+     * 获取最后一次成功校验的完整十六进制数据
+     * @return 完整的十六进制数据字符串
+     */
+    public static String getFullHexData() {
+        return fullHexData;
+    }
+    /**
+     * 清空存储的完整数据
+     */
+    public static void clearFullHexData() {
+        fullHexData = "";
+    }
+
     public static String translatePartPacket(String hexData) {
         try{
             String cleanHex = hexData.replaceAll("[^0-9A-Fa-f]", "").toUpperCase();
@@ -592,7 +612,7 @@ public class DeviceProtocolTranslator {
     }
 
 
-     public static void main(String[] args) {
+     /*public static void main(String[] args) {
          String hexData = "01 64 8B \n" +
                  "01 38 \n" +
                  "00 \n" +
@@ -619,7 +639,7 @@ public class DeviceProtocolTranslator {
          //byte[] bytes = {0x00, 0x7F, (byte) 0xDD, (byte)0xA0};
          System.out.print(combineBytes(0,127,221,160));
 
-     }
+     }*/
     /*public static void main(String[] args) {
         String hexData ="01 66 25 \n" +
                 "20\n" +

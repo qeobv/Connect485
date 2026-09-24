@@ -11,7 +11,6 @@ import javafx.stage.Stage;
 
 import java.io.IOException;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.util.ResourceBundle;
 
 /**
@@ -19,6 +18,7 @@ import java.util.ResourceBundle;
  * 职责：串口连接控制、业务数据(翻译后)展示、系统日志展示、快捷发送指令
  */
 public class SerialUIController implements Initializable {
+
 
     // ==========================================
     // 1. 控件注入
@@ -32,17 +32,15 @@ public class SerialUIController implements Initializable {
     @FXML private Button btnExportData;                  // 导出数据按钮
     @FXML private Button btnOpenDebug;                   // 打开调试窗口按钮
     @FXML private MenuButton menuRecords;                // 记录菜单按钮
-
+    @FXML public Button btnParameters;          //配置查看按钮
     @FXML private TextArea txtRecvArea;        // 翻译结果展示区
     @FXML private TextArea txtSendData;        // 新增：快捷发送区
     @FXML private Button btnImportData;        // 新增：导入报文按钮
     @FXML private Button btnSend;              // 新增：发送按钮
-
     // ==========================================
     // 2. 核心引擎引用及配置
     // ==========================================
     private SerialManager manager;
-
      //串口连接成功后自动发送的初始化指令 (HEX格式，请根据实际业务修改，例如读取设备状态的指令)
     private static final String INIT_COMMAND = "01 64 00 00 00 00 00";
 
@@ -52,7 +50,6 @@ public class SerialUIController implements Initializable {
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         manager = SerialManager.getInstance();
-
         baudRateComboBox.getItems().addAll("9600", "19200", "38400", "57600", "115200");
         btnClosePort.setDisable(true);
 
@@ -240,27 +237,43 @@ public class SerialUIController implements Initializable {
         }
     }
 
-    @FXML private void showHistoryRecords() { openNewWindow("/org/example/history_view.fxml", "历史记录"); }
-    @FXML private void showPositionRecords() { openNewWindow("/org/example/position_view.fxml", "修改位置记录"); }
-    @FXML private void showTorqueRecords() { openNewWindow("/org/example/torque_view.fxml", "修改过力矩记录"); }
-    @FXML private void showCommandRecords() { openNewWindow("/org/example/command_view.fxml", "指令记录"); }
-
-    private void openNewWindow(String fxmlPath, String title) {
+    @FXML
+    private void showHistoryRecords() {
         try {
-            URL fxmlLocation = getClass().getResource(fxmlPath);
-            if (fxmlLocation == null) {
-                showAlert(Alert.AlertType.ERROR, "错误", "找不到界面文件：" + fxmlPath);
-                return;
-            }
-            FXMLLoader loader = new FXMLLoader(fxmlLocation);
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/example/history_view.fxml"));
             Parent root = loader.load();
-            Stage newStage = new Stage();
-            newStage.setTitle(title);
-            newStage.setScene(new Scene(root));
-            newStage.show();
+
+            // 获取控制器并注入 SerialManager
+            HistoryRecordController controller = loader.getController();
+            controller.setManager(manager);
+
+            // 使用 openNewWindow 方法显示窗口
+            openNewWindowWithController(root, "历史记录", controller);
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    @FXML
+    private void showParameters() {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/example/parameters_view.fxml"));
+            Parent root = loader.load();
+            Stage stage = new Stage();
+            stage.setTitle("配置查看");
+            stage.setScene(new Scene(root));
+            stage.show();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+
+    private void openNewWindowWithController(Parent root, String title, Object controller) {
+        Stage stage = new Stage();
+        stage.setTitle(title);
+        stage.setScene(new Scene(root));
+        stage.show();
     }
 
     // ==========================================

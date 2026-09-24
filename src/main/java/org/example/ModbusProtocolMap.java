@@ -26,6 +26,27 @@ public class ModbusProtocolMap {
         }
     }
 
+    public enum TorqueUnit {
+        N(0, "N"),
+        NM(1, "Nm"),
+        KN(2, "kN");
+
+        private final int code;
+        private final String desc;
+        private static final Map<Integer, TorqueUnit> MAP = new HashMap<>();
+        static { for (TorqueUnit e : values()) MAP.put(e.code, e); }
+
+        TorqueUnit(int code, String desc) {
+            this.code = code;
+            this.desc = desc;
+        }
+
+        public static String getDesc(int code) {
+            TorqueUnit e = MAP.get(code);
+            return e != null ? e.desc : "未知力矩单位(" + code + ")";
+        }
+    }
+
     public enum RemoteSignalType {
         CURRENT_4_20MA(1, "4-20mA"), LEVEL(2, "电平型"), PULSE(3, "脉冲型"),
         TWO_WIRE_NO(4, "二线制常开"), TWO_WIRE_NC(5, "二线制常关"),
@@ -45,7 +66,7 @@ public class ModbusProtocolMap {
     }
 
     // ================= 寄存器解析规则定义 =================
-    public enum RegType { INT, BIT, ENUM_INT }
+    public enum RegType { INT, BIT, ENUM_INT}
 
     public static class RegisterDef {
         public final int address;   // Modbus地址 (如 40006 传 6)
@@ -71,11 +92,12 @@ public class ModbusProtocolMap {
         addReg(5,  "阀门当前开度值", "‰",  RegType.INT, 0, 1000, null);
         addReg(6,  "读取当前控制方式", "",  RegType.ENUM_INT, 0, 9, ControlMode.MODBUS);
         addReg(7,  "读取阀门给定开度", "‰",  RegType.INT, 0, 1000, null);
-        addReg(8,  "电机工作电流",   "mA", RegType.INT, 0, 60000, null);
-
+        addReg(8,  "阀门实际力矩值",   "", RegType.INT, 0, 60000, null);
+        // 添加阀门力矩单位寄存器
+        addReg(9, "阀门力矩单位", "", RegType.ENUM_INT, 0, 2, TorqueUnit.N);
         // --- 模拟量输出 ---
-        addReg(11, "设定阀门位置",   "‰",  RegType.INT, 1, 1000, null);
-        addReg(12, "设定远程信号类型", "",  RegType.ENUM_INT, 1, 9, RemoteSignalType.MODBUS);
+        addReg(13, "设定阀门位置",   "‰",  RegType.INT, 1, 1000, null);
+        addReg(14, "设定远程信号类型", "",  RegType.ENUM_INT, 1, 9, RemoteSignalType.MODBUS);
 
         // --- 数字量输入 (位操作) ---
         addBitReg(0, 0, "阀开到位");
@@ -142,6 +164,9 @@ public class ModbusProtocolMap {
         if (reg == null) {
             return String.format("未知寄存器(地址:%d, 位:%d, 值:0x%04X)", modbusAddress, bitPos, rawValue);
         }
+
+        if (reg.enumMap instanceof TorqueUnit) return String.format("%s: %s", reg.name, TorqueUnit.getDesc(rawValue));
+
 
         switch (reg.type) {
             case INT:

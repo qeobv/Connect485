@@ -6,3 +6,29 @@
     -fx-padding: 10px;            /* 修改文本框内边距（文字与边框的距离） */
 }
 
+
+#btnUpload, #btnDownload {
+    -fx-pref-width: 80px;
+}
+#txtParameters {
+    -fx-font-family: "Consolas";
+    -fx-font-size: 14;
+    -fx-border-color: #cccccc;
+    -fx-border-width: 1px;
+    -fx-background-color: #ffffff;
+}
+
+#btnUpload, #btnDownload, #btnRefresh, #btnClear {
+    -fx-font-size: 14px;
+    -fx-background-color: #f0f0f0;
+    -fx-border-color: #cccccc;
+    -fx-border-width: 1px;
+}
+
+#btnUpload:hover, #btnDownload:hover, #btnRefresh:hover, #btnClear:hover {
+    -fx-background-color: #e0e0e0;
+}
+
+#btnUpload:pressed, #btnDownload:pressed, #btnRefresh:pressed, #btnClear:pressed {
+    -fx-background-color: #d0d0d0;
+}
