@@ -184,7 +184,7 @@ public class HistoryRecordController {
         String timestamp = LocalDateTime.now()
                 .format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
         String content = String.join("\n", fullRecords);
-        String fileName = "历史记录_" + timestamp + ".csv";   // ★ 与 exportTextData 的 csv 过滤一致
+        String fileName = "历史记录_" + timestamp + ".txt";   // ★ 与 exportTextData 的 csv 过滤一致
 
         boolean success = manager.exportTextData(
                 content, fileName, recordTable.getScene().getWindow());

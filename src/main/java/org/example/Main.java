@@ -1,6 +1,7 @@
 package org.example;
 
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
@@ -10,24 +11,28 @@ public class Main extends Application {
 
     @Override
     public void start(Stage primaryStage) throws Exception {
-        // 1. 创建 FXMLLoader 并加载 FXML 文件
         FXMLLoader loader = new FXMLLoader(getClass().getResource("SerialUI.fxml"));
-
-        // 2. 加载 FXML 文件得到根节点
         Parent root = loader.load();
 
-        // 3. 创建场景，并将根节点放入场景中，设置窗口的初始宽高
         Scene scene = new Scene(root, 900, 720);
-
-        // 4. 将场景设置到主舞台
         primaryStage.setScene(scene);
+        primaryStage.setTitle("Java 串口调试助手 v2.1.0");
 
-        // 5. 设置窗口标题
-        primaryStage.setTitle("Java 串口调试助手 v1.1.0");
+        // 添加窗口关闭事件处理
+        primaryStage.setOnCloseRequest(event -> {
+            // 获取控制器并关闭串口
+            SerialUIController controller = loader.getController();
+            if (controller != null) {
+                controller.closeSerialPort();
+            }
+            // 确保JavaFX应用完全退出
+            Platform.exit();
+            System.exit(0);
+        });
 
-        // 6. 显示窗口
         primaryStage.show();
     }
+
 
     public static void main(String[] args) {
         // 启动 JavaFX 应用

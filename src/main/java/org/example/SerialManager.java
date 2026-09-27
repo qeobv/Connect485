@@ -297,24 +297,47 @@ public class SerialManager {
         return false;
     }
 
-    public void closePort() {
-        if (readTimer != null) { readTimer.cancel(); readTimer = null; }
-        if (modbusFrameTimer != null) { modbusFrameTimer.cancel(); modbusFrameTimer = null; }
-
-        try {
-            if (outputStream != null) outputStream.close();
-        } catch (IOException ex) { ex.printStackTrace(); }
-
-        if (comPort != null && comPort.isOpen()) {
-            comPort.closePort();
-            broadcastSystemLog("串口已关闭");
-        }
-        comPort = null;
-    }
 
     public boolean isPortOpen() {
         return comPort != null && comPort.isOpen();
     }
+
+    public void closePort() {
+        // 停止所有定时器
+        if (readTimer != null) {
+            readTimer.cancel();
+            readTimer = null;
+        }
+        if (modbusFrameTimer != null) {
+            modbusFrameTimer.cancel();
+            modbusFrameTimer = null;
+        }
+
+        // 关闭输出流
+        try {
+            if (outputStream != null) {
+                outputStream.close();
+                outputStream = null;
+            }
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+
+        // 关闭串口
+        if (comPort != null && comPort.isOpen()) {
+            comPort.closePort();
+            comPort = null;
+        }
+
+        // 清空缓冲区
+        receiveBuffer.reset();
+
+        // 清理监听器
+        listeners.clear();
+
+        broadcastSystemLog("串口已关闭，资源已释放");
+    }
+
 
     // ==========================================================
     //  数据读取
@@ -496,8 +519,8 @@ public class SerialManager {
     public String importTextData(Window ownerWindow) {
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("导入数据");
-        fileChooser.getExtensionFilters().addAll(new FileChooser.ExtensionFilter("文本文件", "*.txt"));
-        File file = fileChooser.showOpenDialog(ownerWindow);
+        fileChooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("配置文件 (*.cfg)", "*.cfg"));        File file = fileChooser.showOpenDialog(ownerWindow);
         if (file != null) {
             try {
                 return Files.readString(file.toPath(), StandardCharsets.UTF_8);

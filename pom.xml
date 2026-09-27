@@ -1,57 +1,212 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-  <modelVersion>4.0.0</modelVersion>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                             http://maven.apache.org/xsd/maven-4.0.0.xsd">
 
+  <modelVersion>4.0.0</modelVersion>
   <groupId>org.example</groupId>
-  <artifactId>connect485</artifactId>
+  <artifactId>SerialAssist</artifactId>
   <version>1.0-SNAPSHOT</version>
   <packaging>jar</packaging>
-
-  <name>connect485</name>
-  <url>http://maven.apache.org</url>
 
   <properties>
     <maven.compiler.source>21</maven.compiler.source>
     <maven.compiler.target>21</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+    <javafx.version>21.0.2</javafx.version>
+    <launcher.class>org.example.Launcher</launcher.class>
+
+    <!-- ★★★ 修改这里：你解压 JavaFX JMOD 的目录 ★★★ -->
+    <javafx.jmods>C:/Program Files/Java/javafx-jmods-21.0.2</javafx.jmods>
   </properties>
 
   <dependencies>
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
-      <version>3.8.1</version>
+      <version>4.13.2</version>
       <scope>test</scope>
     </dependency>
-    <!-- jSerialComm 依赖 -->
     <dependency>
       <groupId>com.fazecast</groupId>
       <artifactId>jSerialComm</artifactId>
-      <version>2.10.4</version> <!-- 建议使用最新稳定版 -->
+      <version>2.10.4</version>
     </dependency>
-    <!-- JavaFX Controls -->
     <dependency>
       <groupId>org.openjfx</groupId>
       <artifactId>javafx-controls</artifactId>
-      <version>21</version>
+      <version>${javafx.version}</version>
     </dependency>
-    <!-- JavaFX FXML (如果你后续使用FXML) -->
     <dependency>
       <groupId>org.openjfx</groupId>
       <artifactId>javafx-fxml</artifactId>
-      <version>21</version>
+      <version>${javafx.version}</version>
     </dependency>
-      <dependency>
-          <groupId>org.jetbrains</groupId>
-          <artifactId>annotations</artifactId>
-          <version>RELEASE</version>
-          <scope>compile</scope>
-      </dependency>
     <dependency>
       <groupId>org.jetbrains</groupId>
       <artifactId>annotations</artifactId>
-      <version>26.1.0</version>
-      <scope>compile</scope>
+      <version>24.0.1</version>
     </dependency>
   </dependencies>
+
+  <build>
+    <finalName>SerialAssist</finalName>
+    <plugins>
+
+      <!-- 编译插件 -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.13.0</version>
+        <configuration>
+          <source>21</source>
+          <target>21</target>
+          <encoding>UTF-8</encoding>
+        </configuration>
+      </plugin>
+
+      <!-- 打普通 jar -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.4.1</version>
+        <configuration>
+          <archive>
+            <manifest>
+              <mainClass>${launcher.class}</mainClass>
+              <addClasspath>true</addClasspath>
+              <classpathPrefix>lib/</classpathPrefix>
+            </manifest>
+          </archive>
+        </configuration>
+      </plugin>
+
+      <!-- 复制运行时依赖到 target/lib（排除 JavaFX） -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>3.6.1</version>
+        <executions>
+          <execution>
+            <id>copy-dependencies</id>
+            <phase>package</phase>
+            <goals><goal>copy-dependencies</goal></goals>
+            <configuration>
+              <outputDirectory>${project.build.directory}/lib</outputDirectory>
+              <includeScope>runtime</includeScope>
+              <excludeGroupIds>org.openjfx</excludeGroupIds>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- jlink + jpackage -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <version>3.1.0</version>
+        <executions>
+
+          <!-- 3a. 生成精简 runtime -->
+          <execution>
+            <id>jlink-runtime</id>
+            <phase>package</phase>
+            <goals><goal>run</goal></goals>
+            <configuration>
+              <target>
+                <delete dir="${project.build.directory}/runtime"/>
+                <exec executable="${java.home}/bin/jlink" failonerror="true">
+                  <arg value="--module-path"/>
+                  <arg value="${java.home}/jmods${path.separator}${javafx.jmods}"/>
+                  <arg value="--add-modules"/>
+                  <arg value="java.base,java.desktop,java.logging,java.xml,java.sql,jdk.unsupported,javafx.controls,javafx.fxml,javafx.graphics,javafx.base"/>
+                  <arg value="--output"/>
+                  <arg value="${project.build.directory}/runtime"/>
+                  <arg value="--strip-debug"/>
+                  <arg value="--no-header-files"/>
+                  <arg value="--no-man-pages"/>
+                  <arg value="--compress=2"/>
+                </exec>
+              </target>
+            </configuration>
+          </execution>
+
+          <!-- 3b. 复制 jar 和 lib 到 staging（干净输入目录） -->
+          <execution>
+            <id>prepare-staging</id>
+            <phase>package</phase>
+            <goals><goal>run</goal></goals>
+            <configuration>
+              <target>
+                <delete dir="${project.build.directory}/staging"/>
+                <delete dir="${project.build.directory}/dist"/>
+
+                <mkdir dir="${project.build.directory}/staging"/>
+
+                <copy file="${project.build.directory}/${project.build.finalName}.jar"
+                      todir="${project.build.directory}/staging"/>
+
+                <copy todir="${project.build.directory}/staging/lib">
+                  <fileset dir="${project.build.directory}/lib"/>
+                </copy>
+              </target>
+            </configuration>
+          </execution>
+
+          <!-- 3c. jpackage 生成免安装 app-image -->
+          <execution>
+            <id>jpackage-appimage</id>
+            <phase>package</phase>
+            <goals><goal>run</goal></goals>
+            <configuration>
+              <target>
+                <exec executable="jpackage" failonerror="true">
+                  <arg value="--type"/>
+                  <arg value="app-image"/>
+
+                  <arg value="--name"/>
+                  <arg value="SerialAssist"/>
+
+                  <arg value="--input"/>
+                  <arg value="${project.build.directory}/staging"/>
+
+                  <arg value="--main-jar"/>
+                  <arg value="${project.build.finalName}.jar"/>
+
+                  <arg value="--main-class"/>
+                  <arg value="${launcher.class}"/>
+
+                  <arg value="--runtime-image"/>
+                  <arg value="${project.build.directory}/runtime"/>
+
+                  <arg value="--app-version"/>
+                  <arg value="1.0.0"/>
+
+                  <arg value="--vendor"/>
+                  <arg value="Your Company"/>
+
+                  <arg value="--description"/>
+                  <arg value="Serial Assist - 485 Serial Communication Tool"/>
+
+                  <arg value="--dest"/>
+                  <arg value="${project.build.directory}/dist"/>
+
+                  <arg value="--java-options"/>
+                  <arg value="-Dfile.encoding=UTF-8"/>
+
+
+                  <arg value="--icon"/>
+                  <arg value="${project.basedir}/src/main/resources/app.ico"/>
+
+                </exec>
+              </target>
+            </configuration>
+          </execution>
+
+        </executions>
+      </plugin>
+
+    </plugins>
+  </build>
 </project>

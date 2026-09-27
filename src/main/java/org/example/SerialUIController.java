@@ -164,7 +164,7 @@ public class SerialUIController implements Initializable {
     }
 
     @FXML
-    private void closeSerialPort() {
+    void closeSerialPort() {
         manager.closePort();
         btnOpenPort.setDisable(false);
         btnClosePort.setDisable(true);

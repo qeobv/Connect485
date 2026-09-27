@@ -146,4 +146,13 @@ public class DebugViewController implements Initializable {
             txtSendData.setText(content);
         }
     }
+    public void onDestroy() {
+        // 移除所有监听器
+        manager.removeListener((SerialManager.SerialEventListener) this);
+        // 清理其他资源
+        if (txtDebugRecv != null) {
+            txtDebugRecv.clear();
+        }
+    }
+
 }
