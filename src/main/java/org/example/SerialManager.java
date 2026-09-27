@@ -18,18 +18,48 @@ import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * 串口核心管理器 (单例模式)
- * 职责：底层通讯、数据拼包、协议翻译、事件广播、通用工具服务
+ *
+ * 【页面隔离机制】
+ *   1. 页面注册监听器带 pageTag：addListener("ParametersView", listener)
+ *   2. 页面发送数据带 pageTag：sendData(bytes, "ParametersView")
+ *   3. 内部记录"当前活跃 pageTag"，回包只发给 tag 匹配的监听器
+ *   4. pageTag 只是 Java 内部字符串标记，不写入串口数据
+ *   5. 超过 SENDER_TAG_EXPIRE_MS 未发送新数据，tag 失效，回包视为无归属广播
+ *   6. 无 tag 的监听器（旧代码）依然收到所有数据
+ *
+ * 【设备地址机制】★ 新增
+ *   1. 通过 setDeviceAddress(十进制) 设置全局设备地址（0~255）
+ *   2. 所有 sendData 在发送前自动把首字节替换为该地址
+ *   3. 替换发生在算 CRC 之前，CRC 依然正确
+ *   4. 未设置地址时（null），保留原报文的第一个字节
+ *   5. 所有页面无需改动即可生效
  */
 public class SerialManager {
 
-    private static final SerialManager INSTANCE = new SerialManager();
-    private SerialManager() {}
+    // ==========================================================
+    //  单例
+    // ==========================================================
     private static SerialManager instance;
-    private SerialEventListener listener;
-    private DataFilter dataFilter;  // 添加数据过滤器接口
+    private SerialManager() {}
+
+    public static SerialManager getInstance() {
+        if (instance == null) {
+            synchronized (SerialManager.class) {
+                if (instance == null) {
+                    instance = new SerialManager();
+                }
+            }
+        }
+        return instance;
+    }
+
+    // ==========================================================
+    //  底层字段
+    // ==========================================================
     private SerialPort comPort;
     private OutputStream outputStream;
     private final ByteArrayOutputStream receiveBuffer = new ByteArrayOutputStream();
@@ -37,12 +67,78 @@ public class SerialManager {
     private Timer modbusFrameTimer;
     private boolean isCurrentCrcEnabled = true;
 
-    private final List<SerialEventListener> listeners = new CopyOnWriteArrayList<>();
-
-    public void addListener(SerialEventListener listener) { listeners.add(listener); }
-    public void removeListener(SerialEventListener listener) { listeners.remove(listener); }
-
     private final ProtocolTranslationManager translationManager = ProtocolTranslationManager.getInstance();
+
+    // ==========================================================
+    //  页面隔离：活跃发送者 tag
+    // ==========================================================
+    private final AtomicReference<String> activeSenderTag = new AtomicReference<>(null);
+    private volatile long activeSenderTimestamp = 0L;
+    private static final long SENDER_TAG_EXPIRE_MS = 3000L;
+
+    // ==========================================================
+    //  ★ 设备地址（全局，十进制 0~255）
+    // ==========================================================
+    /** 当前设备地址(十进制)；null 表示不替换，保留原首字节 */
+    private final AtomicReference<Integer> deviceAddress = new AtomicReference<>(null);
+
+    /**
+     * 设置设备地址（十进制 0~255）。
+     * 传 null 表示禁用替换。
+     */
+    public void setDeviceAddress(Integer addr) {
+        if (addr == null) {
+            deviceAddress.set(null);
+            return;
+        }
+        if (addr < 0 || addr > 255) {
+            throw new IllegalArgumentException("设备地址超出范围(0~255): " + addr);
+        }
+        deviceAddress.set(addr);
+    }
+
+    /**
+     * 从字符串设置设备地址，允许 "1" / " 10 " / "255"。
+     * 空串或 null 表示禁用替换。
+     */
+    public void setDeviceAddress(String addrText) {
+        if (addrText == null || addrText.trim().isEmpty()) {
+            deviceAddress.set(null);
+            return;
+        }
+        try {
+            int v = Integer.parseInt(addrText.trim());
+            setDeviceAddress(v);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("设备地址必须是十进制数字(0~255): " + addrText);
+        }
+    }
+
+    public Integer getDeviceAddress() {
+        return deviceAddress.get();
+    }
+
+    public boolean hasDeviceAddress() {
+        return deviceAddress.get() != null;
+    }
+
+    /** 用当前设备地址替换首字节；未设置则原样返回 */
+    private byte[] applyDeviceAddress(byte[] data) {
+        Integer addr = deviceAddress.get();
+        if (addr == null || data == null || data.length == 0) return data;
+
+        byte newAddr = (byte) (addr & 0xFF);
+        if (data[0] == newAddr) return data;   // 已经一致，不重复分配
+
+        byte[] copy = data.clone();
+        copy[0] = newAddr;
+        return copy;
+    }
+
+    // ==========================================================
+    //  监听器容器
+    // ==========================================================
+    private final List<TaggedListener> listeners = new CopyOnWriteArrayList<>();
 
     public interface SerialEventListener {
         void onRawData(String rawHex);
@@ -50,48 +146,128 @@ public class SerialManager {
         void onSystemLog(String log);
         void onError(String error);
     }
-    // 单例模式获取实例
-    public static SerialManager getInstance() {
-        if (instance == null) {
-            instance = new SerialManager();
-        }
-        return instance;
-    }
 
-    // 数据过滤器接口
-    public interface DataFilter {
-        boolean shouldProcess(String data);
-    }
-
-    // 在 SerialManager 类中添加更严格的过滤逻辑
-    public void setDataFilter(DataFilter filter) {
-        this.dataFilter = data -> {
-            // 首先检查基本过滤条件
-            if (!filter.shouldProcess(data)) {
-                return false;
-            }
-            // 额外检查数据格式
-            return data.matches("01 6[45][0-9A-Fa-f ]*");
-        };
-    }
-
-
-    // 修改数据分发方法，添加过滤逻辑
-    private void distributeData(String rawData, String translatedData, String systemLog, String error) {
-        if (listener != null) {
-            // 如果设置了过滤器且数据不符合过滤条件，则跳过
-            if (dataFilter != null && !dataFilter.shouldProcess(rawData)) {
-                return;
-            }
-            listener.onRawData(rawData);
-            listener.onTranslatedData(translatedData);
-            listener.onSystemLog(systemLog);
-            listener.onError(error);
+    private static class TaggedListener {
+        final String tag;                    // null 表示全局监听
+        final SerialEventListener listener;
+        TaggedListener(String tag, SerialEventListener listener) {
+            this.tag = tag;
+            this.listener = listener;
         }
     }
 
-    // 获取可用串口列表
+    // ==========================================================
+    //  注册 / 移除监听器
+    // ==========================================================
 
+    public void addListener(String pageTag, SerialEventListener listener) {
+        if (listener == null) return;
+        listeners.add(new TaggedListener(pageTag, listener));
+    }
+
+    @Deprecated
+    public void addListener(SerialEventListener listener) {
+        addListener(null, listener);
+    }
+
+    public void removeListener(SerialEventListener listener) {
+        if (listener == null) return;
+        listeners.removeIf(t -> t.listener == listener);
+    }
+
+    public void removeListenersByTag(String pageTag) {
+        if (pageTag == null) return;
+        listeners.removeIf(t -> pageTag.equals(t.tag));
+    }
+
+    // ==========================================================
+    //  发送数据
+    // ==========================================================
+
+    public void sendData(byte[] data, String pageTag) throws IOException {
+        activeSenderTag.set(pageTag);
+        activeSenderTimestamp = System.currentTimeMillis();
+        doSend(data);
+    }
+
+    @Deprecated
+    public void sendData(byte[] data) throws IOException {
+        activeSenderTag.set(null);
+        activeSenderTimestamp = 0L;
+        doSend(data);
+    }
+
+    /** 实际发送逻辑（协议原样加 CRC；设备地址替换最先执行） */
+    private void doSend(byte[] data) throws IOException {
+        if (outputStream == null) return;
+
+        // ★ 统一替换首字节设备地址（必须在算 CRC 之前）
+        data = applyDeviceAddress(data);
+
+        byte[] finalDataToSend = data;
+        if (isCurrentCrcEnabled) {
+            int crc = Crc16Util.calculateCRC16(data, 0, data.length);
+            byte[] dataWithCrc = new byte[data.length + 2];
+            System.arraycopy(data, 0, dataWithCrc, 0, data.length);
+            dataWithCrc[dataWithCrc.length - 2] = (byte) (crc & 0xFF);
+            dataWithCrc[dataWithCrc.length - 1] = (byte) ((crc >> 8) & 0xFF);
+            finalDataToSend = dataWithCrc;
+        }
+
+        StringBuilder hexBuilder = new StringBuilder();
+        for (byte b : finalDataToSend) hexBuilder.append(String.format("%02X ", b));
+        String timestamp = new SimpleDateFormat("HH:mm:ss.SSS").format(System.currentTimeMillis());
+        broadcastRawData("[" + timestamp + " 发送]: " + hexBuilder.toString().trim());
+
+        ModbusUtils.parseSendDataToUpdateAddress(data);
+        outputStream.write(finalDataToSend);
+        outputStream.flush();
+    }
+
+    public void setCrcEnabled(boolean crcEnabled) {
+        this.isCurrentCrcEnabled = crcEnabled;
+    }
+
+    // ==========================================================
+    //  广播分发
+    // ==========================================================
+    private String resolveActiveTag() {
+        if (activeSenderTimestamp == 0) return null;
+        if (System.currentTimeMillis() - activeSenderTimestamp > SENDER_TAG_EXPIRE_MS) {
+            return null;
+        }
+        return activeSenderTag.get();
+    }
+
+    private void broadcastRawData(String text) {
+        String active = resolveActiveTag();
+        for (TaggedListener t : listeners) {
+            if (t.tag == null || t.tag.equals(active)) {
+                t.listener.onRawData(text);
+            }
+        }
+    }
+
+    private void broadcastTranslatedData(String text) {
+        String active = resolveActiveTag();
+        for (TaggedListener t : listeners) {
+            if (t.tag == null || t.tag.equals(active)) {
+                t.listener.onTranslatedData(text);
+            }
+        }
+    }
+
+    private void broadcastSystemLog(String log) {
+        for (TaggedListener t : listeners) t.listener.onSystemLog(log);
+    }
+
+    private void broadcastError(String error) {
+        for (TaggedListener t : listeners) t.listener.onError(error);
+    }
+
+    // ==========================================================
+    //  串口开关
+    // ==========================================================
     public String[] getAvailablePorts() {
         SerialPort[] ports = SerialPort.getCommPorts();
         String[] portNames = new String[ports.length];
@@ -140,33 +316,9 @@ public class SerialManager {
         return comPort != null && comPort.isOpen();
     }
 
-    public void sendData(byte[] data) throws IOException {
-        if (outputStream != null) {
-            byte[] finalDataToSend = data;
-            if (isCurrentCrcEnabled) {
-                int crc = Crc16Util.calculateCRC16(data, 0, data.length);
-                byte[] dataWithCrc = new byte[data.length + 2];
-                System.arraycopy(data, 0, dataWithCrc, 0, data.length);
-                dataWithCrc[dataWithCrc.length - 2] = (byte) (crc & 0xFF);
-                dataWithCrc[dataWithCrc.length - 1] = (byte) ((crc >> 8) & 0xFF);
-                finalDataToSend = dataWithCrc;
-            }
-
-            StringBuilder hexBuilder = new StringBuilder();
-            for (byte b : finalDataToSend) hexBuilder.append(String.format("%02X ", b));
-            String timestamp = new SimpleDateFormat("HH:mm:ss.SSS").format(System.currentTimeMillis());
-            broadcastRawData("[" + timestamp + " 发送]: " + hexBuilder.toString().trim());
-
-            ModbusUtils.parseSendDataToUpdateAddress(data);
-            outputStream.write(finalDataToSend);
-            outputStream.flush();
-        }
-    }
-
-    public void setCrcEnabled(boolean crcEnabled) {
-        this.isCurrentCrcEnabled = crcEnabled;
-    }
-
+    // ==========================================================
+    //  数据读取
+    // ==========================================================
     private void startEventListening() {
         comPort.addDataListener(new SerialPortDataListener() {
             @Override
@@ -186,82 +338,71 @@ public class SerialManager {
 
     private void drainInputStream() {
         try {
-            // 1. 将底层串口数据持续读入 receiveBuffer
             while (comPort != null && comPort.isOpen() && comPort.bytesAvailable() > 0) {
                 byte[] buffer = new byte[comPort.bytesAvailable()];
                 int numRead = comPort.readBytes(buffer, buffer.length);
                 if (numRead > 0) {
                     receiveBuffer.write(buffer, 0, numRead);
-                    // 原始十六进制打印（只打印新收到的）
                     StringBuilder hexBuilder = new StringBuilder();
                     for (byte b : buffer) hexBuilder.append(String.format("%02X ", b));
                     broadcastRawData(hexBuilder.toString().trim());
                 }
             }
 
-            // 2. 尝试解析缓冲区里的数据
             if (receiveBuffer.size() > 0) {
                 if (isCurrentCrcEnabled) {
                     tryParseModbusBuffer();
                 } else {
                     byte[] dataSnapshot = receiveBuffer.toByteArray();
-                    receiveBuffer.reset(); // 非CRC模式直接清空
+                    receiveBuffer.reset();
                     String timestamp = new SimpleDateFormat("HH:mm:ss.SSS").format(System.currentTimeMillis());
-                    broadcastTranslatedData("[" + timestamp + " 接收(无CRC)]: " + new String(dataSnapshot, StandardCharsets.UTF_8));
+                    broadcastTranslatedData("[" + timestamp + " 接收(无CRC)]: "
+                            + new String(dataSnapshot, StandardCharsets.UTF_8));
                 }
             }
         } catch (Exception e) { e.printStackTrace(); }
     }
 
-    /**
-     * 核心修复：尝试解析缓冲区，根据解析结果消费有效数据
-     */
+    // ==========================================================
+    //  Modbus 拼包 / 解析
+    // ==========================================================
     private void tryParseModbusBuffer() {
         byte[] currentData = receiveBuffer.toByteArray();
         if (currentData.length < 1) return;
 
-        // 计算期望的最小帧长度
         int expectedFrameLength = calculateExpectedFrameLength(currentData);
 
-        // 情况1：数据还不够一个完整的帧长度，什么都不做，等待下次串口数据到来
         if (expectedFrameLength > 0 && currentData.length < expectedFrameLength) {
-            startModbusFrameTimeout(); // 开启超时保护
+            startModbusFrameTimeout();
             return;
         }
 
-        // 情况2：数据长度足够，交给帧解析器处理
         int consumedBytes = parseModbusFrame(currentData);
 
-        // 情况3：解析器消费了部分/全部数据，将剩余数据写回缓冲区
         if (consumedBytes > 0) {
             byte[] remaining = new byte[currentData.length - consumedBytes];
             System.arraycopy(currentData, consumedBytes, remaining, 0, remaining.length);
             receiveBuffer.reset();
             receiveBuffer.write(remaining, 0, remaining.length);
 
-            // 如果还剩数据，递归尝试继续解析（处理粘包）
             if (remaining.length > 0) {
                 tryParseModbusBuffer();
             } else {
-                // 数据刚好被完全消费，取消超时定时器
                 if (modbusFrameTimer != null) modbusFrameTimer.cancel();
             }
         }
     }
 
-    /**
-     * 根据缓冲区头部数据，预判这一帧至少需要多少字节
-     */
     private int calculateExpectedFrameLength(byte[] data) {
         if (data.length < 2) return -1;
         int funcCode = data[1] & 0xFF;
-        if (funcCode > 0x80) return 5; // 异常响应固定5字节
+        if (funcCode > 0x80) return 5;
         if (funcCode == 0x03) {
-            if (data.length < 3) return -1; // 还没读到字节数字段
+            if (data.length < 3) return -1;
             int byteCount = data[2] & 0xFF;
             return 3 + byteCount + 2;
         }
-        return -1; // 未知功能码
+        return -1;
     }
 
     private void startModbusFrameTimeout() {
@@ -273,7 +414,6 @@ public class SerialManager {
                 if (receiveBuffer.size() > 0) {
                     byte[] snapshot = receiveBuffer.toByteArray();
                     receiveBuffer.reset();
-                    // 超时强制作为残帧处理
                     broadcastError("接收数据超时，可能存在残帧或CRC校验错误");
                     String timestamp = new SimpleDateFormat("HH:mm:ss.SSS").format(System.currentTimeMillis());
                     StringBuilder hex = new StringBuilder("[" + timestamp + " 残帧]: ");
@@ -281,12 +421,9 @@ public class SerialManager {
                     broadcastTranslatedData(hex.toString());
                 }
             }
-        }, 100); // 100ms内如果下一截数据没来，判定为残帧
+        }, 100);
     }
 
-    /**
-     * 修改了返回值：返回成功消费(解析)了缓冲区中的多少个字节
-     */
     private int parseModbusFrame(byte[] bufferData) {
         int i = 0;
         while (i < bufferData.length) {
@@ -313,10 +450,6 @@ public class SerialManager {
                 System.arraycopy(bufferData, i, completeFrame, 0, expectedFrameLength);
 
                 if (Crc16Util.verifyCRC16(completeFrame, 0, expectedFrameLength)) {
-             //       byte[] pureData = new byte[expectedFrameLength - 2];
-             //       System.arraycopy(completeFrame, 0, pureData, 0, expectedFrameLength - 2);
-
-                    // 使用ModbusUtils处理所有功能码
                     String translated = ModbusUtils.parseModbusFrame(completeFrame);
                     if (translated != null && !translated.isEmpty()) {
                         String timestamp = new SimpleDateFormat("HH:mm:ss.SSS").format(System.currentTimeMillis());
@@ -334,34 +467,31 @@ public class SerialManager {
         return i;
     }
 
-    private void broadcastRawData(String text) { for (SerialEventListener l : listeners) l.onRawData(text); }
-    private void broadcastTranslatedData(String text) { for (SerialEventListener l : listeners) l.onTranslatedData(text); }
-    private void broadcastSystemLog(String log) { for (SerialEventListener l : listeners) l.onSystemLog(log); }
-    private void broadcastError(String error) { for (SerialEventListener l : listeners) l.onError(error); }
-
+    // ==========================================================
+    //  通用工具
+    // ==========================================================
     public boolean exportTextData(String content, String initialFileName, Window ownerWindow) {
         if (content == null || content.isEmpty()) return false;
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("导出数据");
         fileChooser.setInitialFileName(initialFileName);
-        // 【修改这里】将扩展名和描述改为 csv
         fileChooser.getExtensionFilters().addAll(new FileChooser.ExtensionFilter("CSV文件", "*.csv"));
         File file = fileChooser.showSaveDialog(ownerWindow);
         if (file != null) {
             try {
-                // 【增加 BOM 头】这是让 Excel 正确识别 UTF-8 编码 CSV 文件不乱码的秘诀
                 byte[] bom = new byte[]{(byte) 0xEF, (byte) 0xBB, (byte) 0xBF};
                 java.io.FileOutputStream fos = new java.io.FileOutputStream(file);
                 fos.write(bom);
                 fos.write(content.getBytes(StandardCharsets.UTF_8));
                 fos.close();
                 return true;
+            } catch (IOException e) {
+                broadcastError("导出失败: " + e.getMessage());
+                return false;
             }
-            catch (IOException e) { broadcastError("导出失败: " + e.getMessage()); return false; }
         }
         return false;
     }
-
 
     public String importTextData(Window ownerWindow) {
         FileChooser fileChooser = new FileChooser();
@@ -369,8 +499,12 @@ public class SerialManager {
         fileChooser.getExtensionFilters().addAll(new FileChooser.ExtensionFilter("文本文件", "*.txt"));
         File file = fileChooser.showOpenDialog(ownerWindow);
         if (file != null) {
-            try { return Files.readString(file.toPath(), StandardCharsets.UTF_8); }
-            catch (IOException e) { broadcastError("导入失败: " + e.getMessage()); return null; }
+            try {
+                return Files.readString(file.toPath(), StandardCharsets.UTF_8);
+            } catch (IOException e) {
+                broadcastError("导入失败: " + e.getMessage());
+                return null;
+            }
         }
         return null;
     }

@@ -15,34 +15,39 @@ import java.util.ResourceBundle;
 
 /**
  * 主界面控制器
- * 职责：串口连接控制、业务数据(翻译后)展示、系统日志展示、快捷发送指令
+ *
+ * ★ 新增：设备地址输入框（十进制 0~255）
+ *   - initialize 时默认设为 1
+ *   - openSerialPort 前校验并设置到 SerialManager
+ *   - 连接期间锁定输入框，关闭串口后恢复
  */
 public class SerialUIController implements Initializable {
-
 
     // ==========================================
     // 1. 控件注入
     // ==========================================
-    @FXML private ComboBox<String> portComboBox;          // 串口选择下拉框
-    @FXML private ComboBox<String> baudRateComboBox;      // 波特率选择下拉框
-    @FXML private Button btnOpenPort;                    // 打开串口按钮
-    @FXML private Button btnClosePort;                   // 关闭串口按钮
-    @FXML private Button btnRefresh;                     // 刷新串口按钮
-    @FXML private Button btnClearRecv;                   // 清空接收区按钮
-    @FXML private Button btnExportData;                  // 导出数据按钮
-    @FXML private Button btnOpenDebug;                   // 打开调试窗口按钮
-    @FXML private MenuButton menuRecords;                // 记录菜单按钮
-    @FXML public Button btnParameters;          //配置查看按钮
-    @FXML private TextArea txtRecvArea;        // 翻译结果展示区
-    @FXML private TextArea txtSendData;        // 新增：快捷发送区
-    @FXML private Button btnImportData;        // 新增：导入报文按钮
-    @FXML private Button btnSend;              // 新增：发送按钮
+    @FXML private ComboBox<String> portComboBox;
+    @FXML private ComboBox<String> baudRateComboBox;
+    @FXML private Button btnOpenPort;
+    @FXML private Button btnClosePort;
+    @FXML private Button btnRefresh;
+    @FXML private Button btnClearRecv;
+    @FXML private Button btnExportData;
+    @FXML private Button btnOpenDebug;
+    @FXML private MenuButton menuRecords;
+    @FXML public  Button btnParameters;
+    @FXML private TextArea txtRecvArea;
+    @FXML private TextArea txtSendData;
+    @FXML private Button btnImportData;
+    @FXML private Button btnSend;
+
+    // ★ 新增：设备地址输入框（十进制）
+    @FXML private TextField txtDeviceAddress;
+
     // ==========================================
-    // 2. 核心引擎引用及配置
+    // 2. 核心引擎
     // ==========================================
     private SerialManager manager;
-     //串口连接成功后自动发送的初始化指令 (HEX格式，请根据实际业务修改，例如读取设备状态的指令)
-    private static final String INIT_COMMAND = "01 64 00 00 00 00 00";
 
     // ==========================================
     // 3. 初始化
@@ -53,6 +58,20 @@ public class SerialUIController implements Initializable {
         baudRateComboBox.getItems().addAll("9600", "19200", "38400", "57600", "115200");
         btnClosePort.setDisable(true);
 
+        // ★ 默认设备地址 = 1
+        if (txtDeviceAddress != null) {
+            txtDeviceAddress.setText("1");
+            // ★ 限制只能输入数字
+            txtDeviceAddress.setTextFormatter(new TextFormatter<>(change -> {
+                String newText = change.getControlNewText();
+                if (newText.isEmpty() || newText.matches("\\d{1,3}")) return change;
+                return null;
+            }));
+        }
+        try {
+            manager.setDeviceAddress(1);
+        } catch (IllegalArgumentException ignored) { }
+
         setupListeners();
         refreshPorts();
     }
@@ -61,7 +80,7 @@ public class SerialUIController implements Initializable {
         manager.addListener(new SerialManager.SerialEventListener() {
             @Override
             public void onRawData(String rawHex) {
-                // 主界面不显示底层Hex报文
+                // 主界面不显示底层Hex
             }
 
             @Override
@@ -103,6 +122,26 @@ public class SerialUIController implements Initializable {
             return;
         }
 
+        // ★ 解析并校验十进制设备地址
+        String addrText = txtDeviceAddress == null ? null : txtDeviceAddress.getText();
+        try {
+            if (addrText == null || addrText.trim().isEmpty()) {
+                manager.setDeviceAddress((Integer) null);   // 不替换
+            } else {
+                int v = Integer.parseInt(addrText.trim());
+                if (v < 0 || v > 255) {
+                    showAlert(Alert.AlertType.ERROR, "地址错误",
+                            "设备地址必须在 0~255 之间！");
+                    return;
+                }
+                manager.setDeviceAddress(v);
+            }
+        } catch (NumberFormatException ex) {
+            showAlert(Alert.AlertType.ERROR, "地址错误",
+                    "设备地址必须是十进制数字(0~255)！");
+            return;
+        }
+
         int baudRate = Integer.parseInt(baudRateStr);
 
         if (manager.openPort(portName, baudRate)) {
@@ -110,9 +149,15 @@ public class SerialUIController implements Initializable {
             btnClosePort.setDisable(false);
             portComboBox.setDisable(true);
             baudRateComboBox.setDisable(true);
+            if (txtDeviceAddress != null) txtDeviceAddress.setDisable(true);   // ★ 锁定
 
-            // 串口连接成功后，自动发送初始化指令
-         //   sendHexCommand(INIT_COMMAND);
+            Integer addr = manager.getDeviceAddress();
+            if (addr != null) {
+                appendText(String.format("[系统] 设备地址已设为: %d (HEX: %02X)\n\n",
+                        addr, addr));
+            } else {
+                appendText("[系统] 未设置设备地址，发送时将保留原首字节\n\n");
+            }
         } else {
             showAlert(Alert.AlertType.ERROR, "错误", "串口打开失败！可能被占用。");
         }
@@ -125,10 +170,11 @@ public class SerialUIController implements Initializable {
         btnClosePort.setDisable(true);
         portComboBox.setDisable(false);
         baudRateComboBox.setDisable(false);
+        if (txtDeviceAddress != null) txtDeviceAddress.setDisable(false);      // ★ 恢复
     }
 
     // ==========================================
-    // 5. 界面工具操作 (清空、导出、导入)
+    // 5. 界面工具
     // ==========================================
     @FXML
     private void clearRecvText() {
@@ -162,7 +208,7 @@ public class SerialUIController implements Initializable {
     }
 
     // ==========================================
-    // 6. 快捷发送逻辑 (默认HEX格式+开启CRC)
+    // 6. 快捷发送
     // ==========================================
     @FXML
     private void sendData() {
@@ -174,21 +220,13 @@ public class SerialUIController implements Initializable {
         String input = txtSendData.getText().trim();
         if (input.isEmpty()) return;
 
-        // 调用抽取出的核心发送方法
         sendHexCommand(input);
     }
 
-    /**
-     * 核心发送方法：解析HEX字符串并发生成字节流发送
-     * @param hexStr 符合HEX格式的字符串（可带空格或换行）
-     */
     private void sendHexCommand(String hexStr) {
-        if (hexStr == null || hexStr.trim().isEmpty()) {
-            return;
-        }
+        if (hexStr == null || hexStr.trim().isEmpty()) return;
 
         try {
-            // 主界面发送区强制按 HEX 格式解析
             String cleanHex = hexStr.replace(" ", "").replace("\n", "").replace("\r", "");
             if (cleanHex.length() % 2 != 0) {
                 showAlert(Alert.AlertType.ERROR, "格式错误", "HEX格式错误，长度必须为偶数！");
@@ -206,8 +244,8 @@ public class SerialUIController implements Initializable {
                 dataToSend[i] = (byte) ((high << 4) | low);
             }
 
-            // 主界面发送默认开启 CRC
             manager.setCrcEnabled(true);
+            // 主界面发送不带 tag，走广播（或可改为带 tag，看需求）
             manager.sendData(dataToSend);
 
         } catch (Exception e) {
@@ -243,11 +281,9 @@ public class SerialUIController implements Initializable {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/example/history_view.fxml"));
             Parent root = loader.load();
 
-            // 获取控制器并注入 SerialManager
             HistoryRecordController controller = loader.getController();
             controller.setManager(manager);
 
-            // 使用 openNewWindow 方法显示窗口
             openNewWindowWithController(root, "历史记录", controller);
         } catch (IOException e) {
             e.printStackTrace();
@@ -259,15 +295,20 @@ public class SerialUIController implements Initializable {
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/example/parameters_view.fxml"));
             Parent root = loader.load();
+
+            // ★ 获取控制器，绑定窗口关闭时的清理逻辑
+            ParametersView controller = loader.getController();
+
             Stage stage = new Stage();
             stage.setTitle("配置查看");
             stage.setScene(new Scene(root));
+            // ★ 窗口关闭时移除监听器，防止累积
+            stage.setOnHidden(e -> controller.onDestroy());
             stage.show();
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
-
 
     private void openNewWindowWithController(Parent root, String title, Object controller) {
         Stage stage = new Stage();
@@ -277,7 +318,7 @@ public class SerialUIController implements Initializable {
     }
 
     // ==========================================
-    // 8. 内部辅助方法
+    // 8. 内部辅助
     // ==========================================
     private void appendText(String text) {
         txtRecvArea.appendText(text);

@@ -1,20 +1,53 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.scene.control.*?>
-<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Priority?>
+<?import javafx.scene.layout.VBox?>
 
-<VBox xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="org.example.HistoryRecordController">
-   <children>
-      <TableView fx:id="recordTable" VBox.vgrow="ALWAYS">
-         <columns>
-            <TableColumn fx:id="timeColumn" prefWidth="150" text="时间"/>
-            <TableColumn fx:id="contentColumn" prefWidth="400" text="内容"/>
-         </columns>
-      </TableView>
-      <HBox spacing="10" alignment="CENTER_RIGHT">
-         <Button onAction="#onRefreshAction" text="刷新"/>
-         <Button onAction="#onDownloadAction" text="下载"/>
-         <Button onAction="#onCloseAction" text="关闭"/>
-      </HBox>
-   </children>
+<!--
+    历史记录页面布局
+    布局要点：
+      - 外层 VBox，表格用 VBox.vgrow="ALWAYS" 撑满剩余空间
+      - 底部按钮栏 HBox，右对齐
+      - 列宽策略 CONSTRAINED_RESIZE_POLICY 让内容列自动拉伸
+-->
+<VBox xmlns="http://javafx.com/javafx/8.0.171"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="org.example.HistoryRecordController"
+      spacing="10">
+
+
+   <padding>
+      <Insets top="12" right="12" bottom="12" left="12"/>
+   </padding>
+
+   <!-- 表格：vgrow=ALWAYS 让它吃掉垂直方向剩余空间 -->
+   <TableView fx:id="recordTable" VBox.vgrow="ALWAYS">
+      <columns>
+         <TableColumn fx:id="timeColumn"
+                      text="时间"
+                      prefWidth="120"
+                      minWidth="100"
+                      sortable="false"/>
+         <TableColumn fx:id="contentColumn"
+                      text="内容"
+                      prefWidth="600"
+                      sortable="false"/>
+      </columns>
+      <columnResizePolicy>
+         <!-- 让内容列自动吃满剩余宽度 -->
+         <TableView fx:constant="CONSTRAINED_RESIZE_POLICY"/>
+      </columnResizePolicy>
+   </TableView>
+
+   <!-- 底部按钮栏：右对齐 -->
+   <HBox spacing="10" alignment="CENTER_RIGHT">
+      <Button text="刷新" onAction="#onRefreshAction" prefWidth="80"/>
+      <Button text="下载" onAction="#onDownloadAction" prefWidth="80"/>
+      <Button text="关闭" onAction="#onCloseAction" prefWidth="80"/>
+   </HBox>
 </VBox>
