@@ -9,6 +9,8 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 
+import java.net.URL;
+
 public class Main extends Application {
 
     @Override
@@ -18,14 +20,10 @@ public class Main extends Application {
         // 加载 FXML
         FXMLLoader loader = new FXMLLoader(getClass().getResource("SerialUI.fxml"));
         Parent root = loader.load();
-
         Scene scene = new Scene(root, 900, 720);
-
-        // 可选：加载你自己的微调 CSS（如果不需要可以删掉这两行）
-        // scene.getStylesheets().add(
-        //     getClass().getResource("/custom.css").toExternalForm()
-        // );
-
+        scene.getStylesheets().add(
+                getClass().getResource("/org/example/style.css").toExternalForm()
+        );
         primaryStage.setScene(scene);
         primaryStage.setTitle("Java 串口调试助手 v2.1.0");
 

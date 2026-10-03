@@ -11,6 +11,7 @@ import javafx.stage.Window;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
@@ -70,12 +71,17 @@ public class ParametersView {
             public void onRawData(String rawHex) {
                 receivedData.append(rawHex).append("\n");
 
-                // ★ 自己翻译，过滤掉不支持的
+                // ★ 只处理接收
+                if (rawHex.contains("发送]:")) return;
+                if (!rawHex.contains("接收]:")) return;
+
                 String translated = translationManager.translate(rawHex);
-                if (autoUpdate && translated != null
-                        && !translated.trim().isEmpty()
-                        && !translated.startsWith("不支持")
-                        && !translated.startsWith("数据格式错误")) {
+                if (translated == null || translated.trim().isEmpty()) return;
+                if (translated.startsWith("不支持")) return;
+                if (translated.startsWith("数据格式错误")) return;
+                if (translated.contains("无历史记录")) return;
+
+                if (autoUpdate) {
                     Platform.runLater(() -> updateConfigTable(translated));
                 }
             }
@@ -176,10 +182,17 @@ public class ParametersView {
                     return;
                 }
 
+                // 1. 构造上传报文（功能码 64 → 65）
                 String[] newParts = new String[hexParts.length - 2];
                 System.arraycopy(hexParts, 0, newParts, 0, 2);
                 newParts[1] = "65";
                 System.arraycopy(hexParts, 2, newParts, 2, hexParts.length - 4);
+
+                // 2. ★ 把配置里的「设备地址」字段替换成当前地址
+                Integer currentAddr = manager.getDeviceAddress();
+                if (currentAddr != null) {
+                    patchDeviceAddressField(newParts, currentAddr);
+                }
 
                 pendingData = String.join(" ", newParts);
                 txtParameters1.setText(pendingData);
@@ -191,6 +204,45 @@ public class ParametersView {
                 data.add(new ConfigParam("错误", "数据处理失败: " + e.getMessage(), ""));
             }
         }
+    }
+    /**
+     * 把上传报文里基础设置数据区的「设备地址」字段替换为当前地址。
+     *
+     * 报文结构：
+     *   索引 0      : 从站地址
+     *   索引 1      : 功能码（65）
+     *   索引 2      : 数据长度
+     *   索引 3      : 子包标记（01）
+     *   索引 4      : 子包长度（38）
+     *   索引 5 开始 : 基础设置数据区 w[0]
+     *
+     *   设备地址字段在数据区内偏移 32（H）和 33（L）
+     *   → 报文整体索引 = 5 + 32 = 37、5 + 33 = 38
+     *
+     * @param hexParts   上传报文（每个元素是 1 字节的 hex 字符串，如 "01"）
+     * @param currentAddr 当前设备地址（0~255）
+     */
+    private void patchDeviceAddressField(String[] hexParts, int currentAddr) {
+        final int DATA_START   = 5;    // 基础设置数据区起点
+        final int ADDR_OFFSET_H = 32;  // MENU_BASIC_AddrCodeH
+        final int ADDR_OFFSET_L = 33;  // MENU_BASIC_AddrCodeL
+
+        int hiIdx = DATA_START + ADDR_OFFSET_H;   // 37
+        int loIdx = DATA_START + ADDR_OFFSET_L;   // 38
+
+        if (loIdx >= hexParts.length) {
+            data.add(new ConfigParam("警告",
+                    "报文长度不足，未找到设备地址字段（需要至少 " + (loIdx + 1) + " 字节）", ""));
+            return;
+        }
+
+        // ★ 高位固定为 0（按宏注释「高位无用 始终为0」）
+        hexParts[hiIdx] = "00";
+        hexParts[loIdx] = String.format("%02X", currentAddr & 0xFF);
+
+        data.add(new ConfigParam("系统",
+                String.format("已将配置中的设备地址字段替换为: %d (报文索引 %d~%d)",
+                        currentAddr, hiIdx, loIdx), ""));
     }
 
     @FXML
@@ -238,27 +290,39 @@ public class ParametersView {
     private void handleDownload() {
         String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
 
-        FileChooser txtChooser = new FileChooser();
-        txtChooser.setTitle("保存配置文件");
-        txtChooser.setInitialFileName("config_" + timestamp + ".txt");
-        txtChooser.getExtensionFilters().addAll(
+        FileChooser csvChooser = new FileChooser();
+        csvChooser.setTitle("保存配置文件");
+        csvChooser.setInitialFileName("config_" + timestamp + ".csv");
+        csvChooser.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter("CSV 文件 (*.csv)", "*.csv"),
                 new FileChooser.ExtensionFilter("文本文件 (*.txt)", "*.txt"),
                 new FileChooser.ExtensionFilter("所有文件 (*.*)", "*.*"));
-        File txtFile = txtChooser.showSaveDialog(getWindow());
+        File csvFile = csvChooser.showSaveDialog(getWindow());
 
-        if (txtFile != null) {
+        if (csvFile != null) {
             try {
                 StringBuilder content = new StringBuilder();
+                content.append("类别,参数名,值\n");
+
                 for (ConfigParam param : data) {
                     if (!param.getCategory().equals("系统") &&
                             !param.getCategory().equals("错误") &&
                             !param.getCategory().equals("提示")) {
-                        content.append(param.getName()).append(": ").append(param.getValue()).append("\n");
+                        content.append(escapeCsv(param.getCategory())).append(",")
+                                .append(escapeCsv(param.getName())).append(",")
+                                .append(escapeCsv(param.getValue())).append("\n");
                     }
                 }
 
-                Files.write(txtFile.toPath(), content.toString().getBytes());
+                byte[] bom = new byte[]{(byte) 0xEF, (byte) 0xBB, (byte) 0xBF};
+                byte[] body = content.toString().getBytes(StandardCharsets.UTF_8);
+                byte[] out = new byte[bom.length + body.length];
+                System.arraycopy(bom, 0, out, 0, bom.length);
+                System.arraycopy(body, 0, out, bom.length, body.length);
 
+                Files.write(csvFile.toPath(), out);
+
+                // 保存 cfg（原始 hex）
                 FileChooser cfgChooser = new FileChooser();
                 cfgChooser.setTitle("保存原始数据");
                 cfgChooser.setInitialFileName("config_" + timestamp + ".cfg");
@@ -276,13 +340,22 @@ public class ParametersView {
                             formattedHex.append(hexData.substring(i,
                                     Math.min(i + 2, hexData.length())));
                         }
-                        Files.write(cfgFile.toPath(), formattedHex.toString().getBytes());
+                        Files.write(cfgFile.toPath(),
+                                formattedHex.toString().getBytes(StandardCharsets.UTF_8));
                     }
                 }
             } catch (IOException e) {
                 data.add(new ConfigParam("错误", "文件保存失败: " + e.getMessage(), ""));
             }
         }
+    }
+
+    private String escapeCsv(String s) {
+        if (s == null) return "";
+        if (s.contains(",") || s.contains("\"") || s.contains("\n")) {
+            return "\"" + s.replace("\"", "\"\"") + "\"";
+        }
+        return s;
     }
 
     private void sendHexCommand(String hexStr) {

@@ -4,11 +4,7 @@
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.CheckBox?>
 <?import javafx.scene.control.Label?>
-<?import javafx.scene.control.RadioButton?>
-<?import javafx.scene.control.Separator?>
 <?import javafx.scene.control.TextArea?>
-<?import javafx.scene.control.ToggleGroup?>
-<?import javafx.scene.control.Tooltip?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Region?>
@@ -21,16 +17,12 @@
 
     <!-- ============ 顶部提示 ============ -->
     <top>
-        <VBox spacing="4"
-              style="-fx-background-color: -color-warning-subtle; -fx-padding: 12 16 12 16;">
+        <VBox styleClass="top-bar" spacing="4">
             <HBox alignment="CENTER_LEFT" spacing="8">
-                <FontIcon iconLiteral="mdi2a-alert" iconSize="18"
-                          style="-fx-icon-color: -color-warning-fg;"/>
-                <Label text="底层通讯调试模式"
-                       style="-fx-font-weight: bold; -fx-text-fill: -color-warning-fg;"/>
+                <Label text="底层通讯调试模式" styleClass="title-label"/>
             </HBox>
             <Label text="此处显示的是未经翻译的原始收发报文"
-                   style="-fx-font-size: 12px; -fx-text-fill: -color-fg-muted;"/>
+                   style="-fx-font-size: 12px;"/>
         </VBox>
     </top>
 
@@ -38,17 +30,16 @@
     <center>
         <VBox spacing="8">
             <padding>
-                <Insets bottom="8.0" left="16.0" right="16.0" top="12.0" />
+                <Insets bottom="8.0" left="16.0" right="16.0" top="12.0"/>
             </padding>
 
             <HBox alignment="CENTER_LEFT" spacing="10">
                 <Label text="接收报文监视"
-                       style="-fx-font-size: 15px; -fx-font-weight: bold;" />
-                <Region HBox.hgrow="ALWAYS" />
-
+                       style="-fx-font-size: 15px; -fx-font-weight: bold;"/>
+                <Region HBox.hgrow="ALWAYS"/>
                 <Button fx:id="btnClearDebugRecv" onAction="#clearDebugRecv" text="清空接收区">
                     <graphic>
-                        <FontIcon iconLiteral="mdi2d-delete-sweep" iconSize="16" />
+                        <FontIcon iconLiteral="mdi2d-delete-sweep" iconSize="16"/>
                     </graphic>
                 </Button>
             </HBox>
@@ -56,81 +47,46 @@
             <TextArea fx:id="txtDebugRecv" editable="false"
                       wrapText="true"
                       VBox.vgrow="ALWAYS"
-                      style="-fx-font-family: 'Consolas', 'Courier New', monospace; -fx-font-size: 13px;">
-                <tooltip>
-                    <Tooltip text="显示收到的原始Hex报文流" />
-                </tooltip>
-            </TextArea>
+                      style="-fx-font-family: 'Consolas', 'Courier New', monospace; -fx-font-size: 13px;"/>
         </VBox>
     </center>
 
-    <!-- ============ 发送区 + 控制 ============ -->
+    <!-- ============ 发送区 ============ -->
     <bottom>
         <VBox spacing="12" style="-fx-padding: 12 16 16 16;">
 
-            <!-- 格式 / CRC / 翻译 控制栏 -->
             <HBox alignment="CENTER_LEFT" spacing="16">
-                <fx:define>
-                    <ToggleGroup fx:id="sendFormatGroup" />
-                </fx:define>
-
-                <Label text="发送格式:" />
-                <RadioButton fx:id="rbSendHex" selected="true"
-                             text="HEX" toggleGroup="$sendFormatGroup">
-                    <tooltip>
-                        <Tooltip text="以16进制格式发送 (如: 01 64 00 00 00 00)" />
-                    </tooltip>
-                </RadioButton>
-                <RadioButton text="ASCII" toggleGroup="$sendFormatGroup" />
-
-                <Separator orientation="VERTICAL" />
-
-                <CheckBox fx:id="chkEnableCrc" selected="true" text="追加 Modbus CRC">
-                    <tooltip>
-                        <Tooltip text="勾选后，发送时自动在尾部计算并追加2字节CRC校验码" />
-                    </tooltip>
-                </CheckBox>
-
-                <!-- ★ 翻译开关，默认开 -->
+                <CheckBox fx:id="chkEnableCrc" selected="true" text="追加 Modbus CRC"/>
                 <CheckBox fx:id="chkTranslate" selected="true"
-                          onAction="#toggleTranslation" text="协议翻译">
-                    <tooltip>
-                        <Tooltip text="勾选后显示翻译后的业务数据；取消则显示原始Hex" />
-                    </tooltip>
-                </CheckBox>
-
-                <Region HBox.hgrow="ALWAYS" />
+                          onAction="#toggleTranslation" text="协议翻译"/>
+                <Region HBox.hgrow="ALWAYS"/>
             </HBox>
 
-            <!-- 发送文本区 -->
             <Label text="数据发送区"
-                   style="-fx-font-size: 13px; -fx-text-fill: -color-fg-muted;" />
+                   style="-fx-font-size: 13px; -fx-text-fill: -color-fg-muted;"/>
             <TextArea fx:id="txtSendData"
                       prefRowCount="3"
                       wrapText="true"
                       style="-fx-font-family: 'Consolas', 'Courier New', monospace; -fx-font-size: 13px;"
-                      promptText="请输入要发送的数据，HEX格式下请用空格分隔，如：01 64 00 00 00 00" />
+                      promptText="请输入要发送的数据，HEX格式下请用空格分隔，如：01 03 00 01 00 0A"/>
 
-            <!-- 操作按钮 -->
             <HBox alignment="CENTER_RIGHT" spacing="10">
                 <Button fx:id="btnImportData" onAction="#importTxtData" text="导入报文">
                     <graphic>
-                        <FontIcon iconLiteral="mdi2f-file-import" iconSize="16" />
+                        <FontIcon iconLiteral="mdi2f-file-import" iconSize="16"/>
                     </graphic>
                 </Button>
 
-                <!-- ★ 新增：导出按钮 -->
                 <Button fx:id="btnExportData" onAction="#exportRecvData" text="导出接收">
                     <graphic>
-                        <FontIcon iconLiteral="mdi2e-export" iconSize="16" />
+                        <FontIcon iconLiteral="mdi2e-export" iconSize="16"/>
                     </graphic>
                 </Button>
 
                 <Button fx:id="btnSend" onAction="#sendData"
-                        text="发 送" styleClass="button-primary"
-                        prefWidth="120">
+                        text="发 送" styleClass="button-primary" prefWidth="120">
                     <graphic>
-                        <FontIcon iconLiteral="mdi2s-send" iconSize="16" />
+                        <FontIcon iconLiteral="mdi2s-send" iconSize="16"/>
                     </graphic>
                 </Button>
             </HBox>

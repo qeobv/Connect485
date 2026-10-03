@@ -1,45 +1,208 @@
-/* style.css */
-.custom-text-area {
-    -fx-font-size: 16px;          /* 修改文字大小 */
-    -fx-line-spacing: 5px;        /* 修改行间距 */
-    -fx-letter-spacing: 1px;      /* 修改字间距 */
-    -fx-padding: 10px;            /* 修改文本框内边距（文字与边框的距离） */
+/* =========================================================
+   SerialAssist 自定义样式
+   配合 AtlantaFX 主题使用
+   ========================================================= */
+
+/* ---------- 全局字体 ---------- */
+.root {
+    -fx-font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
 }
 
-
-#btnUpload, #btnDownload {
-    -fx-pref-width: 80px;
-}
-#txtParameters {
-    -fx-font-family: "Consolas";
-    -fx-font-size: 14;
-    -fx-border-color: #cccccc;
-    -fx-border-width: 1px;
-    -fx-background-color: #ffffff;
+/* ---------- 等宽字体（hex 显示） ---------- */
+.mono {
+    -fx-font-family: "Consolas", "JetBrains Mono", "Courier New", monospace;
+    -fx-font-size: 13px;
 }
 
-#btnUpload, #btnDownload, #btnRefresh, #btnClear {
-    -fx-font-size: 14px;
-    -fx-background-color: #f0f0f0;
-    -fx-border-color: #cccccc;
-    -fx-border-width: 1px;
+/* =========================================================
+   顶部连接区（浅蓝渐变）
+   主界面 + 参数页 + 历史页 + 调试页 共用
+   ========================================================= */
+.top-bar {
+    -fx-background-color: linear-gradient(to right, #C9E2FF, #A9D0FF);
+    -fx-padding: 12 16 12 16;
+    -fx-background-radius: 8;
+    -fx-border-color: transparent transparent #8FBEF0 transparent;
+    -fx-border-width: 0 0 1 0;
 }
 
-#btnUpload:hover, #btnDownload:hover, #btnRefresh:hover, #btnClear:hover {
-    -fx-background-color: #e0e0e0;
+/* 顶部区所有 Label */
+.top-bar .label {
+    -fx-text-fill: #1E3A5F;
 }
 
-#btnUpload:pressed, #btnDownload:pressed, #btnRefresh:pressed, #btnClear:pressed {
-    -fx-background-color: #d0d0d0;
-}
-/* custom.css — 只做 AtlantaFX 不提供的微调 */
-
-/* 等宽字体用于接收/发送区 */
-.mono-font {
-    -fx-font-family: "Consolas", "JetBrains Mono", monospace;
+/* 标题 */
+.top-bar .title-label {
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #14375E;
 }
 
-/* 按钮之间的图标间距微调 */
+/* 普通按钮：半透明白底 */
+.top-bar .button {
+    -fx-background-color: rgba(255, 255, 255, 0.6);
+    -fx-text-fill: #1E3A5F;
+    -fx-border-color: rgba(30, 95, 191, 0.25);
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+}
+
+.top-bar .button:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.85);
+}
+
+/* 主色按钮 */
+.top-bar .button-primary {
+    -fx-background-color: #2D7FF9;
+    -fx-text-fill: white;
+    -fx-border-color: transparent;
+}
+
+.top-bar .button-primary:hover {
+    -fx-background-color: #1E6AE0;
+}
+
+/* 成功按钮 */
+.top-bar .button-success {
+    -fx-background-color: #22C55E;
+    -fx-text-fill: white;
+    -fx-border-color: transparent;
+}
+
+.top-bar .button-success:hover {
+    -fx-background-color: #16A34A;
+}
+
+/* 危险按钮 */
+.top-bar .button-danger {
+    -fx-background-color: #EF4444;
+    -fx-text-fill: white;
+    -fx-border-color: transparent;
+}
+
+.top-bar .button-danger:hover {
+    -fx-background-color: #DC2626;
+}
+
+/* ComboBox / TextField / MenuButton：半透明白底 */
+.top-bar .combo-box,
+.top-bar .text-field,
+.top-bar .menu-button {
+    -fx-background-color: rgba(255, 255, 255, 0.6);
+    -fx-text-fill: #1E3A5F;
+    -fx-border-color: rgba(30, 95, 191, 0.25);
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+}
+
+.top-bar .combo-box:hover,
+.top-bar .text-field:hover,
+.top-bar .menu-button:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.85);
+}
+
+.top-bar .combo-box .list-cell,
+.top-bar .menu-button .label {
+    -fx-text-fill: #1E3A5F;
+}
+
+.top-bar .text-field:focused {
+    -fx-background-color: rgba(255, 255, 255, 0.95);
+    -fx-border-color: #2D7FF9;
+}
+
+/* =========================================================
+   数值信息卡片
+   ========================================================= */
+.info-card {
+    -fx-background-color: -color-bg-default;
+    -fx-background-radius: 8;
+    -fx-padding: 12 24 12 24;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.06), 6, 0, 0, 2);
+}
+
+.info-card .info-title {
+    -fx-font-size: 12px;
+    -fx-text-fill: -color-fg-muted;
+}
+
+.info-card .info-value {
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -color-fg-default;
+}
+
+/* =========================================================
+   表格微调
+   ========================================================= */
+.table-view {
+    -fx-background-radius: 8;
+}
+
+.table-view .column-header {
+    -fx-font-weight: bold;
+}
+
+.table-view .table-cell {
+    -fx-padding: 6 10 6 10;
+}
+
+/* =========================================================
+   接收/发送区
+   ========================================================= */
+.text-area {
+    -fx-background-radius: 6;
+}
+
+.text-area .content {
+    -fx-background-radius: 6;
+}
+
+/* =========================================================
+   分隔条
+   ========================================================= */
+.split-pane > .split-pane-divider {
+    -fx-padding: 0 0 0 0;
+    -fx-background-color: -color-border-default;
+    -fx-pref-height: 6px;
+}
+
+.split-pane > .split-pane-divider:hover {
+    -fx-background-color: -color-accent-emphasis;
+}
+
+/* =========================================================
+   按钮图标间距
+   ========================================================= */
 .button > .graphic {
     -fx-padding: 0 6 0 0;
 }
+
+/* =========================================================
+   仪表
+   ========================================================= */
+#gaugeContainer {
+    -fx-background-color: transparent;
+}
+
+/* =========================================================
+   窗口标题栏
+   ========================================================= */
+.root {
+    -fx-font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+}
+
+/* =========================================================
+   深色主题适配（可选）
+   如果你用 PrimerDark，下面的顶部区会变成暗蓝
+   ========================================================= */
+/*
+.root.dark .top-bar {
+    -fx-background-color: linear-gradient(to right, #1E3A5F, #2D4A6B);
+}
+
+.root.dark .top-bar .label,
+.root.dark .top-bar .title-label {
+    -fx-text-fill: #C9E2FF;
+}
+*/

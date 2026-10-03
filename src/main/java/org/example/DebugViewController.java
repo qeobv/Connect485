@@ -44,10 +44,16 @@ public class DebugViewController implements Initializable {
         myListener = new SerialManager.SerialEventListener() {
             @Override
             public void onRawData(String rawHex) {
+                if (!rawHex.startsWith("[")) return;
                 Platform.runLater(() -> {
                     if (chkTranslate != null && chkTranslate.isSelected()) {
                         String translated = translationManager.translate(rawHex);
-                        txtDebugRecv.appendText(translated + "\n");
+                        if (translated == null) {
+                            // 翻译不了（碎片、请求帧等）→ 显示原始
+                            txtDebugRecv.appendText(rawHex + "\n");
+                        } else {
+                            txtDebugRecv.appendText(translated + "\n");
+                        }
                     } else {
                         txtDebugRecv.appendText(rawHex + "\n");
                     }

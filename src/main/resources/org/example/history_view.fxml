@@ -10,13 +10,6 @@
 <?import javafx.scene.layout.VBox?>
 <?import org.kordamp.ikonli.javafx.FontIcon?>
 
-<!--
-    历史记录页面布局
-    布局要点：
-      - 外层 VBox，表格用 VBox.vgrow="ALWAYS" 撑满剩余空间
-      - 顶部标题栏 + 底部按钮栏，均用 Region 顶开
-      - 列宽策略用 CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN
--->
 <VBox xmlns="http://javafx.com/javafx/21"
       xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="org.example.HistoryRecordController"
@@ -26,51 +19,43 @@
       <Insets top="16" right="16" bottom="16" left="16"/>
    </padding>
 
-   <!-- ============ 标题栏 ============ -->
-   <HBox alignment="CENTER_LEFT" spacing="10">
-      <Label text="历史记录" style="-fx-font-size: 15px; -fx-font-weight: bold;" />
-      <Region HBox.hgrow="ALWAYS" />
-      <Label text="双击行可查看详情"
-             style="-fx-font-size: 12px; -fx-text-fill: -color-fg-muted;" />
-   </HBox>
+   <!-- ============ 顶部标题栏 ============ -->
+   <VBox styleClass="top-bar" spacing="8">
+      <HBox alignment="CENTER_LEFT" spacing="10">
+         <Label text="历史记录" styleClass="title-label"/>
+         <Region HBox.hgrow="ALWAYS"/>
+      </HBox>
+   </VBox>
 
-   <!-- ============ 记录表格 ============ -->
+   <!-- ============ 表格 ============ -->
    <TableView fx:id="recordTable" VBox.vgrow="ALWAYS">
       <columns>
-         <TableColumn fx:id="timeColumn"
-                      text="时间"
-                      prefWidth="160"
-                      minWidth="120"
-                      sortable="false"/>
-         <TableColumn fx:id="contentColumn"
-                      text="内容"
-                      prefWidth="600"
-                      sortable="false"/>
+         <TableColumn fx:id="timeColumn" text="时间" prefWidth="160" minWidth="120"/>
+         <TableColumn fx:id="contentColumn" text="内容" prefWidth="600"/>
       </columns>
       <columnResizePolicy>
-         <!-- JavaFX 21：用 FLEX_LAST_COLUMN，最后列自动拉伸 -->
          <TableView fx:constant="CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN"/>
       </columnResizePolicy>
    </TableView>
 
-   <!-- ============ 底部操作栏 ============ -->
+   <!-- ============ 底部按钮 ============ -->
    <HBox spacing="10" alignment="CENTER_RIGHT">
       <Button text="刷新" onAction="#onRefreshAction" prefWidth="90">
          <graphic>
-            <FontIcon iconLiteral="mdi2r-refresh" iconSize="16" />
+            <FontIcon iconLiteral="mdi2r-refresh" iconSize="16"/>
          </graphic>
       </Button>
 
       <Button text="下载" onAction="#onDownloadAction" prefWidth="90">
          <graphic>
-            <FontIcon iconLiteral="mdi2d-download" iconSize="16" />
+            <FontIcon iconLiteral="mdi2d-download" iconSize="16"/>
          </graphic>
       </Button>
 
       <Button text="关闭" onAction="#onCloseAction"
               prefWidth="90" styleClass="button-danger">
          <graphic>
-            <FontIcon iconLiteral="mdi2c-close" iconSize="16" />
+            <FontIcon iconLiteral="mdi2c-close" iconSize="16"/>
          </graphic>
       </Button>
    </HBox>

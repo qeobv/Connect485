@@ -16,11 +16,11 @@ public class DeviceProtocolTranslator {
     // 新增：存储完整的十六进制数据
     private static String fullHexData = "";
 
-
+    private static String torqueCalibrationSwitch = "";
     // ================= 枚举映射定义 =================
     private static final Map<Integer, String> SIGN_TYPE_MAP = Map.of(
-            0, "4-20mA", 1, "保持", 2, "点动", 3, "二线制常开",
-            4, "二线制常闭", 5, "Modbus", 6, "Profibus", 7, "Hart", 8, "压差PID"
+            0, "4-20mA", 1, "电平信号", 2, "脉冲信号", 3, "二线制常开",
+            4, "二线制常关", 5, "Modbus", 6, "Profibus", 7, "Hart", 8, "压差PID"
     );
     private static final Map<Integer, String> ACTION_TYPE_MAP = Map.of(
             0, "全开", 1, "全关", 2, "保持", 3, "指定位置", 4, "关闭"
@@ -126,13 +126,13 @@ public class DeviceProtocolTranslator {
         try {
             // 1. 清洗数据
             String cleanHex = hexData.replaceAll("[^0-9A-Fa-f]", "").toUpperCase();
-            if (cleanHex.length() < 10) return "报文过短";
+            if (cleanHex.length() < 10) return null;    // ★ 改成 null
 
-            // 2. 解析 Modbus 帧头 (01 64 8B)
             int slaveAddr = Integer.parseInt(cleanHex.substring(0, 2), 16);
-            int funcCode = Integer.parseInt(cleanHex.substring(2, 4), 16);
+            int funcCode  = Integer.parseInt(cleanHex.substring(2, 4), 16);
             int byteCount = Integer.parseInt(cleanHex.substring(4, 6), 16);
 
+            if (byteCount == 0) return null;            // ★ 请求帧
             StringBuilder sb = new StringBuilder();
             sb.append(String.format("====== Modbus 帧头 ======\n"));
             sb.append(String.format("地址: %d, 功能码: %d, 声明数据长度: %d 字节\n", slaveAddr, funcCode, byteCount));
@@ -160,7 +160,7 @@ public class DeviceProtocolTranslator {
             // 6. 顺序拆分到三个子数组，各自校验并解析
             // --- 第一部分：基础设置 (01 38) ---
             if (pointer + 1 < totalBytes && allBytes[pointer] == 1 && allBytes[pointer + 1] == 56) {
-                sb.append("\n================ [基础设置] ================\n");
+                sb.append("\n====== 基础设置 ======\n");
                 basicData = new int[56];
                 System.arraycopy(allBytes, pointer + 2, basicData, 0, 56);
 
@@ -174,21 +174,21 @@ public class DeviceProtocolTranslator {
 
             // --- 第二部分：告警设置 (02 0B) ---
             if (pointer + 1 < totalBytes && allBytes[pointer] == 2 && allBytes[pointer + 1] == 11) {
-                sb.append("\n================ [告警设置] ================\n");
+                sb.append("\n====== 继电器输出设置 ======\n");
                 alarmData = new int[11];
                 System.arraycopy(allBytes, pointer + 2, alarmData, 0, 11);
 
                 if (verifySubCRC(alarmData)) {
                     translateAlarmSettings(alarmData, 0, sb);
                 } else {
-                    sb.append("⚠️ 告警设置CRC校验失败\n");
+                    sb.append("⚠️ 继电器输出设置CRC校验失败\n");
                 }
                 pointer += 13;
             }
 
             // --- 第三部分：高级设置 (03 42) ---
             if (pointer + 1 < totalBytes && allBytes[pointer] == 3 && allBytes[pointer + 1] == 66) {
-                sb.append("\n================ [高级设置] ================\n");
+                sb.append("\n====== 高级设置 ======\n");
                 superData = new int[66];
                 System.arraycopy(allBytes, pointer + 2, superData, 0, 66);
 
@@ -227,43 +227,49 @@ public class DeviceProtocolTranslator {
     }
 
     public static String translatePartPacket(String hexData) {
-        try{
+        try {
             String cleanHex = hexData.replaceAll("[^0-9A-Fa-f]", "").toUpperCase();
-            if (cleanHex.length() < 10) return "无历史记录";
-            else {
-                int slaveAddr = Integer.parseInt(cleanHex.substring(0, 2), 16);
-                int funcCode = Integer.parseInt(cleanHex.substring(2, 4), 16);
-                int byteCount = Integer.parseInt(cleanHex.substring(4, 6), 16);
+            if (cleanHex.length() < 10) return null;    // ★ 改成 null
 
-                int partCount= Integer.parseInt(cleanHex.substring(6, 8),16);
-                int partNumber= Integer.parseInt(cleanHex.substring(8, 10),16);
+            int slaveAddr = Integer.parseInt(cleanHex.substring(0, 2), 16);
+            int funcCode  = Integer.parseInt(cleanHex.substring(2, 4), 16);
+            int byteCount = Integer.parseInt(cleanHex.substring(4, 6), 16);
 
-                StringBuilder sb = new StringBuilder();
-                sb.append(String.format("====== Modbus 帧头 ======\n"));
-                sb.append(String.format("地址: %d, 功能码: %d, 声明数据长度: %d 字节\n", slaveAddr, funcCode, byteCount));
-                sb.append(String.format("数据总条数：%d， 当前第%d条",partCount,partNumber + 1));
-                // 3. 将全部数据存入总数组 (包含帧头 01 66 8B)
-                int totalBytes = cleanHex.length() / 2;
-                int[] allBytes = new int[totalBytes];
-                for (int i = 0; i < totalBytes; i++) {
-                    allBytes[i] = Integer.parseInt(cleanHex.substring(i * 2, i * 2 + 2), 16);
-                }
-                // 4. Modbus 整包 CRC 校验 (校验除最后2字节外的所有数据)
-                if (!verifyModbusCRC(allBytes)) {
-                    sb.append("⚠️ ModbusCRC校验失败！\n");
-                    return sb.toString();
-                } else {
-                    sb.append("✔️ ModbusCRC校验通过\n");
-                    partData = new int[allBytes.length-7];
-                    int dataStart = 5;
-                    System.arraycopy(allBytes,dataStart,partData,0,allBytes.length-7);
-                    translatePartSettings(partData, sb);
-                    return sb.toString();
-                }
+            if (byteCount == 0) return null;            // ★ 请求帧过滤
+
+            int partCount  = Integer.parseInt(cleanHex.substring(6, 8), 16);
+            int partNumber = Integer.parseInt(cleanHex.substring(8, 10), 16);
+
+            StringBuilder sb = new StringBuilder();
+            //sb.append(String.format("地址: %d, 功能码: %d\n", slaveAddr, funcCode));
+            sb.append(String.format("数据总条数：%d， 当前第%d条\n", partCount, partNumber + 1));
+
+            int totalBytes = cleanHex.length() / 2;
+            if (totalBytes < 7) return null;            // ★ 防止负数组
+
+            int[] allBytes = new int[totalBytes];
+            for (int i = 0; i < totalBytes; i++) {
+                allBytes[i] = Integer.parseInt(cleanHex.substring(i * 2, i * 2 + 2), 16);
             }
+
+            if (!verifyModbusCRC(allBytes)) {
+                sb.append("⚠️ ModbusCRC校验失败！\n");
+                return sb.toString();
+            }
+
+           // sb.append("✔️ ModbusCRC校验通过\n");
+
+            partData = new int[allBytes.length - 7];
+            if (partData.length < 24) return null;      // ★ translatePartSettings 至少需要 24
+
+            int dataStart = 5;
+            System.arraycopy(allBytes, dataStart, partData, 0, allBytes.length - 7);
+            translatePartSettings(partData, sb);
+            return sb.toString();
+
         } catch (Exception e) {
             e.printStackTrace();
-            return "解析异常: " + e.getMessage();
+            return null;                                // ★ 异常也返回 null
         }
     }
 
@@ -340,8 +346,8 @@ public class DeviceProtocolTranslator {
         //    map.put("输出20mA校准高字节", String.valueOf(w[offset+15]));
         //    map.put("输出20mA校准低字节", String.valueOf(w[offset+16]));
         map.put("输出20mA校准", String.valueOf(combineBytes(w[offset + 15],w[offset + 16])));
-        map.put("死区调整", formatDecimal(w[offset+17], 10) + " S");
-        map.put("远程信号类型", safeGetEnum(w, offset+18, SIGN_TYPE_MAP));
+        map.put("死区范围设置", formatDecimal(w[offset+17], 10) + " S");
+        map.put("信号类型", safeGetEnum(w, offset+18, SIGN_TYPE_MAP));
         map.put("信号故障类型", safeGetEnum(w, offset+19, ACTION_TYPE_MAP));
         //   map.put("信号故障指定位置1", String.valueOf(w[offset+20]));
         //   map.put("信号故障指定位置2", String.valueOf(w[offset+21]));
@@ -358,32 +364,32 @@ public class DeviceProtocolTranslator {
         //    map.put("ESD指定位置2", String.valueOf(w[offset+29]));
         map.put("ESD指定位置", String.format("%.1f", combineBytes(w[offset + 28],w[offset + 29]) / 10.0) + "%");
         map.put("启动选项", w[offset+30] == 0 ? "本地控制" : "远程控制");
-        map.put("正反作用", w[offset+31] == 0 ? "正作用" : "反作用");
+        map.put("电机关阀方向", w[offset+31] == 0 ? "顺时针关阀" : "逆时针关阀");
         //   map.put("设备地址高字节", String.valueOf(w[offset+32]));
         //   map.put("设备地址低字节", String.valueOf(w[offset+33]));
         map.put("设备地址", String.valueOf(combineBytes(w[offset + 32],w[offset + 33])));
-        map.put("调试模式", w[offset+34] == 1 ? "开启" : "关闭");
         map.put("最大开速度", String.valueOf(w[offset+35]+ " %"));
         map.put("最大关速度", String.valueOf(w[offset+36]+ " %"));
-        map.put("压力设定", formatDecimal(w[offset+37], 10) + " MPa");
         map.put("减速范围", formatDecimal(w[offset+38], 10) + " %");
-        map.put("自动移动开关", w[offset+39] == 1 ? "开" : "关");
-        map.put("自动移动周期", String.valueOf(w[offset+40]));
-        map.put("自动移动时刻小时", String.valueOf(w[offset+41]));
-        map.put("自动移动时刻分钟", String.valueOf(w[offset+42]));
-        map.put("自动移动范围", formatDecimal(w[offset+43], 10) + " %");
-        map.put("自动移动最长时间", String.valueOf(w[offset+44] + "S"));
+        map.put("自检开关", w[offset+39] == 1 ? "开" : "关");
+        map.put("自检周期", String.valueOf(w[offset+40]));
+        map.put("自检时刻",String.format("%02d:%02d",w[offset+41],w[offset+42]));
+        map.put("自检范围", formatDecimal(w[offset+43], 10) + " %");
+        map.put("自检最大时间", String.valueOf(w[offset+44] + "S"));
+        map.put("压力设定", formatDecimal(w[offset+37], 10) + " MPa");
         map.put("压差PID_P", String.valueOf(w[offset+45] / 10.0));
         map.put("压差PID_I", String.valueOf(w[offset+46] / 10.0));
         map.put("压差PID_D", String.valueOf(w[offset+47] / 10.0));
-        map.put("保留参数1", String.valueOf(w[offset+48]));
-        map.put("保留参数2", String.valueOf(w[offset+49]));
-        map.put("保留参数3", String.valueOf(w[offset+50]));
-        map.put("保留参数4", String.valueOf(w[offset+51]));
-        map.put("保留参数5", String.valueOf(w[offset+52]));
-        map.put("保留参数6", String.valueOf(w[offset+53]));
-        map.put("基础参数CRC高字节", String.valueOf(w[offset+54]));
-        map.put("基础参数CRC低字节", String.valueOf(w[offset+55]));
+       // map.put("力矩校准开关", w[offset+34] == 1 ? "开启" : "关闭");
+        torqueCalibrationSwitch = w[offset+34] == 1 ? "开启" : "关闭";
+      //  map.put("保留参数1", String.valueOf(w[offset+48]));
+        //map.put("保留参数2", String.valueOf(w[offset+49]));
+     //   map.put("保留参数3", String.valueOf(w[offset+50]));
+      //  map.put("保留参数4", String.valueOf(w[offset+51]));
+      //  map.put("保留参数5", String.valueOf(w[offset+52]));
+      //  map.put("保留参数6", String.valueOf(w[offset+53]));
+      //  map.put("基础参数CRC高字节", String.valueOf(w[offset+54]));
+       // map.put("基础参数CRC低字节", String.valueOf(w[offset+55]));
 
         map.forEach((k, v) -> sb.append(String.format("%-30s: %s\n", k, v)));
     }
@@ -392,18 +398,18 @@ public class DeviceProtocolTranslator {
         Map<String, String> map = new LinkedHashMap<>();
 
         // 告警设置参数
-        map.put("报警开出端口1", safeGetEnum(w, offset+0, ALARM_PORT_MAP));
-        map.put("报警开出端口2", safeGetEnum(w, offset+1, ALARM_PORT_MAP));
-        map.put("报警开出端口3", safeGetEnum(w, offset+2, ALARM_PORT_MAP));
-        map.put("报警开出端口4", safeGetEnum(w, offset+3, ALARM_PORT_MAP));
-        map.put("报警开出端口5", safeGetEnum(w, offset+4, ALARM_PORT_MAP));
-        map.put("报警开出端口6", safeGetEnum(w, offset+5, ALARM_PORT_MAP));
+        map.put("继电器输出1", safeGetEnum(w, offset+0, ALARM_PORT_MAP));
+        map.put("继电器输出2", safeGetEnum(w, offset+1, ALARM_PORT_MAP));
+        map.put("继电器输出3", safeGetEnum(w, offset+2, ALARM_PORT_MAP));
+        map.put("继电器输出4", safeGetEnum(w, offset+3, ALARM_PORT_MAP));
+        map.put("继电器输出5", safeGetEnum(w, offset+4, ALARM_PORT_MAP));
+        map.put("继电器输出6", safeGetEnum(w, offset+5, ALARM_PORT_MAP));
         //    map.put("报警指定位置1", String.valueOf(w[offset+6]));
         //    map.put("报警指定位置2", String.valueOf(w[offset+7]));
         map.put("报警指定位置", String.format("%.1f", combineBytes(w[offset + 6],w[offset + 7]) / 10.0) + "%");
-        map.put("报警范围", String.valueOf(w[offset+8] / 10.0) + " %");
-        map.put("高级参数CRC高字节", String.valueOf(w[offset+9]));
-        map.put("高级参数CRC低字节", String.valueOf(w[offset+10]));
+        map.put("反馈区间设置", String.valueOf(w[offset+8] / 10.0) + " %");
+        //map.put("高级参数CRC高字节", String.valueOf(w[offset+9]));
+        //map.put("高级参数CRC低字节", String.valueOf(w[offset+10]));
 
         map.forEach((k, v) -> sb.append(String.format("%-30s: %s\n", k, v)));
     }
@@ -414,90 +420,112 @@ public class DeviceProtocolTranslator {
         // 高级设置参数
         //    map.put("密码高字节", String.valueOf(w[offset+0]));
         //    map.put("密码低字节", String.valueOf(w[offset+1]));
-        map.put("密码", String.valueOf(combineBytes(w[offset + 0],w[offset + 1])));
-        map.put("力矩单位", safeGetEnum(w, offset+2, TORQUE_UNIT_MAP));
         //    map.put("二级关过力矩1高字节", String.valueOf(w[offset+3]));
         //    map.put("二级关过力矩1低字节", String.valueOf(w[offset+4]));
-        map.put("二级关过力矩1", String.valueOf(combineBytes(w[offset + 3],w[offset + 4])));
+        //map.put("二级关过力矩1", String.valueOf(combineBytes(w[offset + 3],w[offset + 4])));
         //    map.put("二级开过力矩1高字节", String.valueOf(w[offset+5]));
         //     map.put("二级开过力矩1低字节", String.valueOf(w[offset+6]));
-        map.put("二级开过力矩1", String.valueOf(combineBytes(w[offset + 5],w[offset + 6])));
+      //  map.put("二级开过力矩1", String.valueOf(combineBytes(w[offset + 5],w[offset + 6])));
         //    map.put("过力矩延时1高字节", String.valueOf(w[offset+7]));
         //    map.put("过力矩延时1低字节", String.valueOf(w[offset+8]));
         map.put("过力矩延时", String.valueOf(combineBytes(w[offset + 7],w[offset + 8]) + " ms"));
         //   map.put("二级关过力矩2高字节", String.valueOf(w[offset+9]));
         //    map.put("二级关过力矩2低字节", String.valueOf(w[offset+10]));
-        map.put("二级关过力矩2", String.valueOf(combineBytes(w[offset + 9],w[offset + 10])));
+        map.put("关过力矩值", String.valueOf(combineBytes(w[offset + 9],w[offset + 10] ) + "%"));
         //    map.put("二级开过力矩2高字节", String.valueOf(w[offset+11]));
         //    map.put("二级开过力矩2低字节", String.valueOf(w[offset+12]));
-        map.put("二级开过力矩2", String.valueOf(combineBytes(w[offset + 11],w[offset + 12])));
+        map.put("开过力矩值", String.valueOf(combineBytes(w[offset + 11],w[offset + 12]) + "%"));
         //    map.put("传动比(电机至电位器)高字节", String.valueOf(w[offset+13]));
         //    map.put("传动比(电机至电位器)低字节", String.valueOf(w[offset+14]));
-        map.put("传动比(电机至电位器)", String.valueOf(combineBytes(w[offset + 13],w[offset + 14])));
+        // ================= 保护投退（PROTEND1~4）=================
+// PROTEND1 是最高字节
+        int protect = (w[offset + 49] << 24)
+                | (w[offset + 50] << 16)
+                | (w[offset + 51] << 8)
+                |  w[offset + 52];
+
+// 电机拒动保护：bit 6~7（2 位，有一个为 1 就显示开启）
+        int motorNoMoveBits = (protect >> 6) & 0b11;
+        map.put("电机拒动保护", motorNoMoveBits != 0 ? "开启" : "关闭");
+
+// 传感器保护：bit 9
+        map.put("传感器保护", ((protect >> 9) & 1) == 1 ? "开启" : "关闭");
+
+// 过温保护：bit 23
+        map.put("过温保护", ((protect >> 23) & 1) == 1 ? "开启" : "关闭");
+        map.put("传感器保护精度", String.valueOf(w[offset+21] / 10.0) + " 度");
+        map.put("位置传动比", String.valueOf(combineBytes(w[offset + 13],w[offset + 14])));
         //    map.put("传动比(电机至阀门)高字节", String.valueOf(w[offset+15]));
         //   map.put("传动比(电机至阀门)低字节", String.valueOf(w[offset+16]));
-        map.put("传动比(电机至阀门)", String.valueOf(combineBytes(w[offset + 15],w[offset + 16])));
+        map.put("机械传动比", String.valueOf(combineBytes(w[offset + 15],w[offset + 16])));
+        map.put("电机关阀方向", w[offset+53] == 0 ? "顺时针关阀" : "逆时针关阀");
         //   map.put("产品编号1", String.valueOf(w[offset+17]));
         //   map.put("产品编号2", String.valueOf(w[offset+18]));
         //    map.put("产品编号3", String.valueOf(w[offset+19]));
         //     map.put("产品编号4", String.valueOf(w[offset+20]));
         map.put("产品编号",String.valueOf(combineBytes(w[offset+17],w[offset+18],w[offset+19],w[offset+20])));
-        map.put("电位计保护误差", String.valueOf(w[offset+21]) + " %");
+        map.put("密码设置", String.valueOf(combineBytes(w[offset + 0],w[offset + 1])));
         //    map.put("力矩校准低点值高字节", String.valueOf(w[offset+22]));
         //    map.put("力矩校准低点值低字节", String.valueOf(w[offset+23]));
-        map.put("力矩校准低点值", String.valueOf(combineBytes(w[offset + 22],w[offset + 23])));
+        map.put("力矩校准开关", torqueCalibrationSwitch);
+        torqueCalibrationSwitch ="";
+        map.put("空载校准值", String.valueOf(combineBytes(w[offset + 22],w[offset + 23])));
         //    map.put("力矩校准低点开阀值高字节", String.valueOf(w[offset+24]));
         //    map.put("力矩校准低点开阀值低字节", String.valueOf(w[offset+25]));
-        map.put("力矩校准低点开阀值", String.valueOf(combineBytes(w[offset + 24],w[offset + 25])));
+        map.put("空载开电流值", String.valueOf(combineBytes(w[offset + 24],w[offset + 25])));
         //    map.put("力矩校准低点关阀值高字节", String.valueOf(w[offset+26]));
         //    map.put("力矩校准低点关阀值低字节", String.valueOf(w[offset+27]));
-        map.put("力矩校准低点关阀值", String.valueOf(combineBytes(w[offset + 26],w[offset + 27])));
+        map.put("空载关电流值", String.valueOf(combineBytes(w[offset + 26],w[offset + 27])));
         //    map.put("力矩校准高点值高字节", String.valueOf(w[offset+28]));
         //   map.put("力矩校准高点值低字节", String.valueOf(w[offset+29]));
-        map.put("力矩校准高点值", String.valueOf(combineBytes(w[offset + 28],w[offset + 29])));
+        map.put("负载校准值", String.valueOf(combineBytes(w[offset + 28],w[offset + 29])));
         //   map.put("力矩校准高点开阀值高字节", String.valueOf(w[offset+30]));
         //    map.put("力矩校准高点开阀值低字节", String.valueOf(w[offset+31]));
-        map.put("力矩校准高点开阀值", String.valueOf(combineBytes(w[offset + 30],w[offset + 31])));
+        map.put("负载开电流值", String.valueOf(combineBytes(w[offset + 30],w[offset + 31])));
         //   map.put("力矩校准高点关阀值高字节", String.valueOf(w[offset+32]));
         //    map.put("力矩校准高点关阀值低字节", String.valueOf(w[offset+33]));
-        map.put("力矩校准高点关阀值", String.valueOf(combineBytes(w[offset + 32],w[offset + 33])));
-        map.put("速度环启动系数", String.valueOf(w[offset+34]));
+        map.put("负载关电流值", String.valueOf(combineBytes(w[offset + 32],w[offset + 33])));
+        map.put("力矩单位", safeGetEnum(w, offset+2, TORQUE_UNIT_MAP));
+        map.put("过力矩重试开关", w[offset+58] == 1 ? "开启" : "关闭");
+        map.put("过力矩重试次数", String.valueOf(w[offset+59]));
+        map.put("电机极对数", String.valueOf(w[offset+44]));
+        map.put("启动速度", String.valueOf(w[offset+34]));
         //   map.put("速度环最大电流AD值高字节", String.valueOf(w[offset+35]));
         //   map.put("速度环最大电流AD值低字节", String.valueOf(w[offset+36]));
-        map.put("速度环最大电流AD值", String.valueOf(combineBytes(w[offset + 35],w[offset + 36])));
-        map.put("电流环P系数", String.valueOf(w[offset+37]));
+        map.put("设定电流值", String.valueOf(combineBytes(w[offset + 35],w[offset + 36])));
+        map.put("电流环系数", String.valueOf(w[offset+37]));
         //    map.put("电流环调节范围高字节", String.valueOf(w[offset+38]));
         //   map.put("电流环调节范围低字节", String.valueOf(w[offset+39]));
-        map.put("电流环调节范围", String.valueOf(combineBytes(w[offset + 38],w[offset + 39])));
-        map.put("电流环加速度减档", String.valueOf(w[offset+40]));
+        map.put("电流环范围", String.valueOf(combineBytes(w[offset + 38],w[offset + 39])));
+        map.put("加速分频系数", String.valueOf(w[offset+40]));
+        map.put("采样放大系数", String.valueOf(combineBytes(w[offset + 42],w[offset + 43])/100.00));
         map.put("采样电阻值", String.valueOf(w[offset+41]) + " mΩ");
         //   map.put("采样放大系数高字节", String.valueOf(w[offset+42]));
         //    map.put("采样放大系数低字节", String.valueOf(w[offset+43]));
-        map.put("采样放大系数", String.valueOf(combineBytes(w[offset + 42],w[offset + 43])/100.00));
-        map.put("极对数", String.valueOf(w[offset+44]));
+
         //   map.put("额定速度高字节", String.valueOf(w[offset+45]));
         //   map.put("额定速度低字节", String.valueOf(w[offset+46]));
         map.put("额定速度", String.valueOf(combineBytes(w[offset + 45],w[offset + 46])));
         //   map.put("最小速度高字节", String.valueOf(w[offset+47]));
         //   map.put("最小速度低字节", String.valueOf(w[offset+48]));
         map.put("最小速度", String.valueOf(combineBytes(w[offset + 47],w[offset + 48])));
-        map.put("保护参数1", String.valueOf(w[offset+49]));
-        map.put("保护参数2", String.valueOf(w[offset+50]));
-        map.put("保护参数3", String.valueOf(w[offset+51]));
-        map.put("保护参数4", String.valueOf(w[offset+52]));
-        map.put("机体正反逻辑", w[offset+53] == 0 ? "正逻辑" : "反逻辑");
+      //  map.put("保护参数1", String.valueOf(w[offset+49]));
+       // map.put("保护参数2", String.valueOf(w[offset+50]));
+      //  map.put("保护参数3", String.valueOf(w[offset+51]));
+        //map.put("保护参数4", String.valueOf(w[offset+52]));
+
         map.put("数字接口波特率", safeGetEnum(w, offset+54, BAUD_RATE_MAP));
-        map.put("通讯开关", w[offset+55] == 1 ? "打开" : "关闭");
+        map.put("公司信息", w[offset+55] == 1 ? "开启" : "关闭");
         map.put("MODBUS校验方式", w[offset+56] == 0 ? "无校验" : (w[offset+56] == 1 ? "奇校验" : "偶校验"));
         map.put("MODBUS类型", w[offset+57] == 0 ? "Modbus-RTU" : "Modbus-TCP");
-        map.put("过力矩重试使能", w[offset+58] == 1 ? "开启" : "关闭");
-        map.put("过力矩重试次数", String.valueOf(w[offset+59]));
-        map.put("按键保持", String.valueOf(w[offset+60]));
-        map.put("保留参数1", String.valueOf(w[offset+61]));
-        map.put("保留参数2", String.valueOf(w[offset+62]));
-        map.put("保留参数3", String.valueOf(w[offset+63]));
-        map.put("出厂参数CRC高字节", String.valueOf(w[offset+64]));
-        map.put("出厂参数CRC低字节", String.valueOf(w[offset+65]));
+
+        map.put("按键保持", w[offset+60] == 1 ? "开启" : "关闭");
+
+      //  map.put("保留参数1", String.valueOf(w[offset+61]));
+        //map.put("保留参数2", String.valueOf(w[offset+62]));
+       // map.put("保留参数3", String.valueOf(w[offset+63]));
+      //  map.put("出厂参数CRC高字节", String.valueOf(w[offset+64]));
+      //  map.put("出厂参数CRC低字节", String.valueOf(w[offset+65]));
 
         map.forEach((k, v) -> sb.append(String.format("%-30s: %s\n", k, v)));
     }

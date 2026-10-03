@@ -1,12 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <?import javafx.geometry.Insets?>
-<?import javafx.scene.control.*?>
-<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.MenuButton?>
+<?import javafx.scene.control.MenuItem?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
 <?import org.kordamp.ikonli.javafx.FontIcon?>
 
 <BorderPane fx:id="mainPane"
-            minHeight="400.0" minWidth="600.0"
+            minHeight="500.0" minWidth="700.0"
             prefHeight="720.0" prefWidth="900.0"
             xmlns="http://javafx.com/javafx/21"
             xmlns:fx="http://javafx.com/fxml/1"
@@ -14,32 +23,38 @@
 
     <!-- ================= 顶部：串口连接 ================= -->
     <top>
-        <VBox spacing="12" style="-fx-padding: 16;">
-            <HBox alignment="CENTER_LEFT" spacing="12">
-                <Label text="串口:" />
-                <ComboBox fx:id="portComboBox" prefWidth="120" promptText="选择串口" />
+        <VBox spacing="12" styleClass="top-bar">
 
-                <Label text="波特率:" />
-                <ComboBox fx:id="baudRateComboBox" prefWidth="110" promptText="波特率" />
+            <!-- 标题行 -->
+            <Label text="🔌 串口连接" styleClass="title-label"/>
+
+            <!-- 连接参数行 -->
+            <HBox alignment="CENTER_LEFT" spacing="12">
+                <Label text="串口:"/>
+                <ComboBox fx:id="portComboBox" prefWidth="120" promptText="选择串口"/>
+
+                <Label text="波特率:"/>
+                <ComboBox fx:id="baudRateComboBox" prefWidth="110" promptText="波特率"/>
 
                 <Button fx:id="btnRefresh" onAction="#refreshPorts" text="刷新">
                     <graphic>
-                        <FontIcon iconLiteral="mdi2r-refresh" iconSize="16" />
+                        <FontIcon iconLiteral="mdi2r-refresh" iconSize="16"/>
                     </graphic>
                 </Button>
 
-                <Region HBox.hgrow="ALWAYS" />
+                <Region HBox.hgrow="ALWAYS"/>
 
-                <Label text="设备地址:" />
+                <Label text="设备地址:"/>
                 <TextField fx:id="txtDeviceAddress" prefWidth="70"
-                           promptText="0~255" text="1" />
+                           promptText="0~255" text="1"/>
             </HBox>
 
+            <!-- 操作按钮行 + 功能按钮 -->
             <HBox spacing="12" alignment="CENTER_LEFT">
                 <Button fx:id="btnOpenPort" onAction="#openSerialPort"
                         text="连接串口" styleClass="button-success">
                     <graphic>
-                        <FontIcon iconLiteral="mdi2p-power-plug" iconSize="16" />
+                        <FontIcon iconLiteral="mdi2p-power" iconSize="16"/>
                     </graphic>
                 </Button>
 
@@ -47,91 +62,83 @@
                         onAction="#closeSerialPort"
                         text="断开串口" styleClass="button-danger">
                     <graphic>
-                        <FontIcon iconLiteral="mdi2c-close-circle" iconSize="16" />
+                        <FontIcon iconLiteral="mdi2c-close-circle" iconSize="16"/>
+                    </graphic>
+                </Button>
+
+                <Region HBox.hgrow="ALWAYS"/>
+
+                <Button fx:id="btnParameters" onAction="#showParameters" text="配置查看">
+                    <graphic>
+                        <FontIcon iconLiteral="mdi2c-cog" iconSize="16"/>
+                    </graphic>
+                </Button>
+
+                <MenuButton fx:id="menuRecords" text="记录查看">
+                    <graphic>
+                        <FontIcon iconLiteral="mdi2h-history" iconSize="16"/>
+                    </graphic>
+                    <items>
+                        <MenuItem onAction="#showHistoryRecords" text="历史记录"/>
+                    </items>
+                </MenuButton>
+
+                <Button fx:id="btnOpenDebug" onAction="#openDebugWindow"
+                        text="调试窗口" styleClass="button-primary">
+                    <graphic>
+                        <FontIcon iconLiteral="mdi2b-bug" iconSize="16"/>
                     </graphic>
                 </Button>
             </HBox>
         </VBox>
     </top>
 
-    <!-- ================= 中心：接收区 ================= -->
+    <!-- ================= 中心：仪表盘 ================= -->
     <center>
-        <VBox spacing="12" style="-fx-padding: 0 16 0 16;">
-            <HBox alignment="CENTER_LEFT" spacing="10">
-                <Label text="数据接收" style="-fx-font-size: 15px; -fx-font-weight: bold;" />
+        <VBox spacing="16" alignment="CENTER"
+              style="-fx-padding: 20;">
 
-                <Region HBox.hgrow="ALWAYS" />
+            <!-- 开度仪表容器（Gauge 在 Java 里创建后加入） -->
+            <StackPane fx:id="gaugeContainer" prefWidth="320" prefHeight="320"/>
 
-                <MenuButton fx:id="menuRecords" text="记录查看">
-                    <graphic>
-                        <FontIcon iconLiteral="mdi2h-history" iconSize="16" />
-                    </graphic>
-                    <items>
-                        <MenuItem onAction="#showHistoryRecords" text="历史记录" />
-                    </items>
-                </MenuButton>
+            <!-- 数值信息 -->
+            <HBox spacing="40" alignment="CENTER"
+                  style="-fx-padding: 12 24 12 24;
+                         -fx-background-color: white;
+                         -fx-background-radius: 8;
+                         -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.06), 6, 0, 0, 2);">
 
-                <Button fx:id="btnParameters" onAction="#showParameters" text="配置查看">
-                    <graphic>
-                        <FontIcon iconLiteral="mdi2c-cog" iconSize="16" />
-                    </graphic>
-                </Button>
+                <VBox alignment="CENTER" spacing="4">
+                    <Label text="实际力矩" style="-fx-font-size: 12px; -fx-text-fill: #6B7280;"/>
+                    <Label fx:id="lblTorque" text="--" style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+                </VBox>
 
-                <Button fx:id="btnClearRecv" onAction="#clearRecvText" text="清空显示">
-                    <graphic>
-                        <FontIcon iconLiteral="mdi2d-delete-sweep" iconSize="16" />
-                    </graphic>
-                </Button>
+                <VBox alignment="CENTER" spacing="4">
+                    <Label text="电机转速" style="-fx-font-size: 12px; -fx-text-fill: #6B7280;"/>
+                    <Label fx:id="lblSpeed" text="--" style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+                </VBox>
 
-                <Button fx:id="btnOpenDebug" onAction="#openDebugWindow"
-                        text="调试窗口" styleClass="button-primary">
-                    <graphic>
-                        <FontIcon iconLiteral="mdi2b-bug" iconSize="16" />
-                    </graphic>
-                </Button>
+                <VBox alignment="CENTER" spacing="4">
+                    <Label text="控制方式" style="-fx-font-size: 12px; -fx-text-fill: #6B7280;"/>
+                    <Label fx:id="lblControlMode" text="--" style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+                </VBox>
+
+                <VBox alignment="CENTER" spacing="4">
+                    <Label text="阀门状态" style="-fx-font-size: 12px; -fx-text-fill: #6B7280;"/>
+                    <Label fx:id="lblValveState" text="--" style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+                </VBox>
             </HBox>
 
-            <TextArea fx:id="txtRecvArea" editable="false"
-                      wrapText="true" VBox.vgrow="ALWAYS"
-                      style="-fx-font-family: 'Consolas', monospace; -fx-font-size: 13px;" />
+            <!-- 给定开度输入 -->
+            <HBox spacing="12" alignment="CENTER">
+                <Label text="给定开度:" style="-fx-font-size: 14px;"/>
+                <TextField fx:id="txtSetOpenRatio" prefWidth="100" promptText="0~100"/>
+                <Label text="\%" style="-fx-font-size: 14px;"/>
+                <Button fx:id="btnSetOpenRatio" onAction="#setOpenRatio"
+                        text="设置" styleClass="button-primary" prefWidth="100"/>
+            </HBox>
+
         </VBox>
     </center>
-
-    <!-- ================= 底部：发送区 ================= -->
-    <bottom>
-        <VBox spacing="10" style="-fx-padding: 12 16 16 16;">
-            <HBox spacing="12" alignment="CENTER_LEFT">
-                <Label text="快捷发送" style="-fx-font-size: 15px; -fx-font-weight: bold;" />
-                <Region HBox.hgrow="ALWAYS" />
-
-                <Button fx:id="btnImportData" onAction="#importTxtData" text="导入报文">
-                    <graphic>
-                        <FontIcon iconLiteral="mdi2f-file-import" iconSize="16" />
-                    </graphic>
-                </Button>
-
-                <Button fx:id="btnExportData" onAction="#exportTxtData" text="导出业务数据">
-                    <graphic>
-                        <FontIcon iconLiteral="mdi2e-export" iconSize="16" />
-                    </graphic>
-                </Button>
-            </HBox>
-
-            <TextArea fx:id="txtSendData"
-                      promptText="输入要发送的HEX指令(如: 01 64 00 00 00 00)，默认带CRC校验"
-                      wrapText="true" prefRowCount="4"
-                      style="-fx-font-family: 'Consolas', monospace; -fx-font-size: 13px;" />
-
-            <HBox alignment="CENTER_RIGHT" spacing="12">
-                <Button fx:id="btnSend" onAction="#sendData"
-                        text="发 送" styleClass="button-primary"
-                        prefWidth="120">
-                    <graphic>
-                        <FontIcon iconLiteral="mdi2s-send" iconSize="16" />
-                    </graphic>
-                </Button>
-            </HBox>
-        </VBox>
-    </bottom>
 
 </BorderPane>

@@ -50,11 +50,17 @@ public class HistoryRecordController implements Initializable {
         myListener = new SerialManager.SerialEventListener() {
             @Override
             public void onRawData(String rawHex) {
-                // ★ 自己翻译
+                if (rawHex == null) return;
+
+                // ★ 只处理接收，不处理发送
+                if (rawHex.contains("发送]:")) return;
+                if (!rawHex.contains("接收]:")) return;
+
                 String translated = translationManager.translate(rawHex);
                 if (translated == null || translated.trim().isEmpty()) return;
                 if (translated.startsWith("不支持")) return;
                 if (translated.startsWith("数据格式错误")) return;
+                if (translated.contains("无历史记录")) return;
 
                 String timestamp = LocalDateTime.now().format(TIME_FMT);
                 fullRecords.add(String.format("[%s] %s", timestamp, translated));

@@ -32,6 +32,7 @@ public class SerialManager {
     // ==========================================================
     //  单例
     // ==========================================================
+    private int crcFailCount = 0;
     private static SerialManager instance;
     private SerialManager() {}
 
@@ -343,8 +344,9 @@ public class SerialManager {
     private int calculateExpectedFrameLength(byte[] data) {
         if (data.length < 2) return -1;
         int funcCode = data[1] & 0xFF;
+
         if (funcCode > 0x80) return 5;
-        if (funcCode == 0x03) {
+        if (funcCode == 0x03 || funcCode == 0x64 || funcCode == 0x66) {
             if (data.length < 3) return -1;
             int byteCount = data[2] & 0xFF;
             return 3 + byteCount + 2;
@@ -368,9 +370,8 @@ public class SerialManager {
                     broadcastRawData(hex.toString());
                 }
             }
-        }, 100);
+        }, 300);   // ← 100 → 300
     }
-
     private int parseModbusFrame(byte[] bufferData) {
         int i = 0;
         while (i < bufferData.length) {
@@ -394,14 +395,23 @@ public class SerialManager {
                 System.arraycopy(bufferData, i, completeFrame, 0, expectedFrameLength);
 
                 if (Crc16Util.verifyCRC16(completeFrame, 0, expectedFrameLength)) {
-                    // 只广播完整帧的原始 hex
+                    crcFailCount = 0;
                     String timestamp = new SimpleDateFormat("HH:mm:ss.SSS").format(System.currentTimeMillis());
                     StringBuilder hex = new StringBuilder("[" + timestamp + " 接收]: ");
                     for (byte b : completeFrame) hex.append(String.format("%02X ", b));
                     broadcastRawData(hex.toString().trim());
                     i += expectedFrameLength;
                 } else {
-                    broadcastError("Modbus CRC校验失败");
+                    crcFailCount++;
+                    StringBuilder dbg = new StringBuilder("CRC失败帧: ");
+                    for (byte b : completeFrame) dbg.append(String.format("%02X ", b));
+                    broadcastError(dbg.toString());
+
+                    if (crcFailCount > 3) {
+                        receiveBuffer.reset();
+                        crcFailCount = 0;
+                        return i;   // 提前退出，下次重新同步
+                    }
                     i++;
                 }
             } else {
@@ -410,7 +420,6 @@ public class SerialManager {
         }
         return i;
     }
-
     // ==========================================================
     //  工具
     // ==========================================================
@@ -419,7 +428,7 @@ public class SerialManager {
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("导出数据");
         fileChooser.setInitialFileName(initialFileName);
-        fileChooser.getExtensionFilters().addAll(new FileChooser.ExtensionFilter("CSV文件", "*.csv"));
+        fileChooser.getExtensionFilters().addAll(new FileChooser.ExtensionFilter("txt文件", "*.txt"));
         File file = fileChooser.showSaveDialog(ownerWindow);
         if (file != null) {
             try {
