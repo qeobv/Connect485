@@ -15,13 +15,16 @@ import java.util.ResourceBundle;
 
 /**
  * 主界面控制器
- *
- * ★ 新增：设备地址输入框（十进制 0~255）
- *   - initialize 时默认设为 1
- *   - openSerialPort 前校验并设置到 SerialManager
- *   - 连接期间锁定输入框，关闭串口后恢复
  */
 public class SerialUIController implements Initializable {
+
+    // ==========================================
+    // 0. 窗口尺寸常量（所有子窗口统一使用）
+    // ==========================================
+    private static final double WINDOW_WIDTH  = 900;
+    private static final double WINDOW_HEIGHT = 720;
+    private static final double WINDOW_MIN_WIDTH  = 600;
+    private static final double WINDOW_MIN_HEIGHT = 400;
 
     // ==========================================
     // 1. 控件注入
@@ -40,8 +43,6 @@ public class SerialUIController implements Initializable {
     @FXML private TextArea txtSendData;
     @FXML private Button btnImportData;
     @FXML private Button btnSend;
-
-    // ★ 新增：设备地址输入框（十进制）
     @FXML private TextField txtDeviceAddress;
 
     // ==========================================
@@ -58,10 +59,8 @@ public class SerialUIController implements Initializable {
         baudRateComboBox.getItems().addAll("9600", "19200", "38400", "57600", "115200");
         btnClosePort.setDisable(true);
 
-        // ★ 默认设备地址 = 1
         if (txtDeviceAddress != null) {
             txtDeviceAddress.setText("1");
-            // ★ 限制只能输入数字
             txtDeviceAddress.setTextFormatter(new TextFormatter<>(change -> {
                 String newText = change.getControlNewText();
                 if (newText.isEmpty() || newText.matches("\\d{1,3}")) return change;
@@ -122,11 +121,10 @@ public class SerialUIController implements Initializable {
             return;
         }
 
-        // ★ 解析并校验十进制设备地址
         String addrText = txtDeviceAddress == null ? null : txtDeviceAddress.getText();
         try {
             if (addrText == null || addrText.trim().isEmpty()) {
-                manager.setDeviceAddress((Integer) null);   // 不替换
+                manager.setDeviceAddress((Integer) null);
             } else {
                 int v = Integer.parseInt(addrText.trim());
                 if (v < 0 || v > 255) {
@@ -149,7 +147,7 @@ public class SerialUIController implements Initializable {
             btnClosePort.setDisable(false);
             portComboBox.setDisable(true);
             baudRateComboBox.setDisable(true);
-            if (txtDeviceAddress != null) txtDeviceAddress.setDisable(true);   // ★ 锁定
+            if (txtDeviceAddress != null) txtDeviceAddress.setDisable(true);
 
             Integer addr = manager.getDeviceAddress();
             if (addr != null) {
@@ -170,7 +168,7 @@ public class SerialUIController implements Initializable {
         btnClosePort.setDisable(true);
         portComboBox.setDisable(false);
         baudRateComboBox.setDisable(false);
-        if (txtDeviceAddress != null) txtDeviceAddress.setDisable(false);      // ★ 恢复
+        if (txtDeviceAddress != null) txtDeviceAddress.setDisable(false);
     }
 
     // ==========================================
@@ -245,7 +243,6 @@ public class SerialUIController implements Initializable {
             }
 
             manager.setCrcEnabled(true);
-            // 主界面发送不带 tag，走广播（或可改为带 tag，看需求）
             manager.sendData(dataToSend);
 
         } catch (Exception e) {
@@ -254,21 +251,20 @@ public class SerialUIController implements Initializable {
     }
 
     // ==========================================
-    // 7. 打开其他窗口
+    // 7. 打开其他窗口（★ 改动部分）
     // ==========================================
     @FXML
     private void openDebugWindow() {
         try {
-            URL fxmlLocation = getClass().getResource("DebugView.fxml");
-            if (fxmlLocation == null) {
-                showAlert(Alert.AlertType.ERROR, "错误", "无法找到调试界面文件：DebugView.fxml");
-                return;
-            }
-            FXMLLoader loader = new FXMLLoader(fxmlLocation);
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("DebugView.fxml"));
             Parent root = loader.load();
+            DebugViewController controller = loader.getController();
+
             Stage stage = new Stage();
             stage.setTitle("底层通讯调试助手");
             stage.setScene(new Scene(root));
+            applyDefaultSize(stage);
+            stage.setOnHidden(e -> controller.onDestroy());   // ★ 加这一行
             stage.show();
         } catch (IOException e) {
             e.printStackTrace();
@@ -296,13 +292,12 @@ public class SerialUIController implements Initializable {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/example/parameters_view.fxml"));
             Parent root = loader.load();
 
-            // ★ 获取控制器，绑定窗口关闭时的清理逻辑
             ParametersView controller = loader.getController();
 
             Stage stage = new Stage();
             stage.setTitle("配置查看");
             stage.setScene(new Scene(root));
-            // ★ 窗口关闭时移除监听器，防止累积
+            applyDefaultSize(stage);   // ★ 统一尺寸
             stage.setOnHidden(e -> controller.onDestroy());
             stage.show();
         } catch (IOException e) {
@@ -314,12 +309,21 @@ public class SerialUIController implements Initializable {
         Stage stage = new Stage();
         stage.setTitle(title);
         stage.setScene(new Scene(root));
+        applyDefaultSize(stage);   // ★ 统一尺寸
         stage.show();
     }
 
     // ==========================================
     // 8. 内部辅助
     // ==========================================
+    /** ★ 统一所有子窗口的初始尺寸与最小尺寸 */
+    private void applyDefaultSize(Stage stage) {
+        stage.setWidth(WINDOW_WIDTH);
+        stage.setHeight(WINDOW_HEIGHT);
+        stage.setMinWidth(WINDOW_MIN_WIDTH);
+        stage.setMinHeight(WINDOW_MIN_HEIGHT);
+    }
+
     private void appendText(String text) {
         txtRecvArea.appendText(text);
     }

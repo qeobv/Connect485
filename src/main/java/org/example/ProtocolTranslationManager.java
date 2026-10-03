@@ -1,33 +1,78 @@
 package org.example;
 
 /**
- * 协议转换管理器类，用于管理协议转换的相关操作
- * 采用单例模式设计，确保全局只有一个实例
+ * 协议转换管理器：唯一翻译入口。
+ * 内部自动清洗输入（去时间戳前缀、去空格），按功能码分发。
+ *
+ * 支持的功能码：
+ *   0x64 → DeviceProtocolTranslator.translateFullPacket
+ *   0x66 → DeviceProtocolTranslator.translatePartPacket
+ *   0x03 → ModbusUtils.parseModbusFrame（寄存器位翻译）
  */
 public class ProtocolTranslationManager {
-    // 单例模式的实例，使用private static final确保全局唯一且不可变
+
     private static final ProtocolTranslationManager instance = new ProtocolTranslationManager();
 
-    // 私有构造函数，防止外部实例化
     private ProtocolTranslationManager() {}
 
-    /**
-     * 获取单例实例的方法
-     * @return 返回ProtocolTranslationManager的唯一实例
-     */
     public static ProtocolTranslationManager getInstance() {
         return instance;
     }
 
     /**
-     * 协议转换方法，将十六进制数据转换为设备协议格式
-     * @param hexData 输入的十六进制数据字符串
-     * @return 转换后的协议数据字符串
+     * 翻译入口。入参支持：
+     *   1. 纯 hex：           "016400000000"
+     *   2. 带空格 hex：       "01 64 00 00 00 00"
+     *   3. 带时间戳前缀：     "[12:34:56.789 发送]: 01 64 00 00 00 00"
+     *   4. 带时间戳前缀+空格："[12:34:56.789 接收]: 01 64 00 00 00 00"
      */
+    public String translate(String raw) {
+        String pureHex = extractPureHex(raw);
+        if (pureHex == null || pureHex.length() < 4) {
+            return "数据格式错误";
+        }
+
+        String funcCode = pureHex.substring(2, 4).toUpperCase();
+
+        switch (funcCode) {
+            case "64":
+                return translateFull(pureHex);
+            case "66":
+                return translatePart(pureHex);
+            case "03":
+                return ModbusUtils.parseModbusFrame(hexToBytes(pureHex));
+            default:
+                return "不支持的功能码: " + funcCode;
+        }
+    }
+
+    /** 把任意格式的输入清洗成大写纯 hex；无法提取时返回 null */
+    public String extractPureHex(String raw) {
+        if (raw == null) return null;
+
+        int colonIdx = raw.indexOf("]:");
+        String body = (colonIdx >= 0) ? raw.substring(colonIdx + 2) : raw;
+
+        String hex = body.replaceAll("[^0-9A-Fa-f]", "").toUpperCase();
+        return hex.isEmpty() ? null : hex;
+    }
+
     public String translateFull(String hexData) {
         return DeviceProtocolTranslator.translateFullPacket(hexData);
     }
+
     public String translatePart(String hexData) {
         return DeviceProtocolTranslator.translatePartPacket(hexData);
+    }
+
+    /** hex 字符串 → byte[] */
+    private byte[] hexToBytes(String hex) {
+        int len = hex.length();
+        byte[] data = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) {
+            data[i / 2] = (byte) ((Character.digit(hex.charAt(i), 16) << 4)
+                    + Character.digit(hex.charAt(i + 1), 16));
+        }
+        return data;
     }
 }

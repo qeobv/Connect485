@@ -32,3 +32,14 @@
 #btnUpload:pressed, #btnDownload:pressed, #btnRefresh:pressed, #btnClear:pressed {
     -fx-background-color: #d0d0d0;
 }
+/* custom.css — 只做 AtlantaFX 不提供的微调 */
+
+/* 等宽字体用于接收/发送区 */
+.mono-font {
+    -fx-font-family: "Consolas", "JetBrains Mono", monospace;
+}
+
+/* 按钮之间的图标间距微调 */
+.button > .graphic {
+    -fx-padding: 0 6 0 0;
+}

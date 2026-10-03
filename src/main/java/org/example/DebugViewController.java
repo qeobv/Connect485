@@ -4,84 +4,78 @@ import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.*;
-import javafx.stage.Window;
+import javafx.stage.FileChooser;
 
+import java.io.File;
+import java.io.IOException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.ResourceBundle;
 
-/**
- * 调试界面控制器
- * 职责：底层原始报文监视、手动发送指令、CRC校验控制、报文导入
- */
 public class DebugViewController implements Initializable {
 
-    // ==========================================
-    // 1. 控件注入 (与 DebugView.fxml 中的 fx:id 一一对应)
-    // ==========================================
-    @FXML private TextArea txtDebugRecv;      // 原始报文接收区
-    @FXML private TextArea txtSendData;       // 报文发送区
-    @FXML private RadioButton rbSendHex;      // HEX发送单选按钮
-    @FXML private CheckBox chkEnableCrc;      // 启用CRC校验复选框
-    @FXML private Button btnImportData;       // 导入报文按钮
-    @FXML private Button btnSend;             // 发送按钮
-    @FXML private Button btnClearDebugRecv;   // 清空接收区按钮
+    @FXML private TextArea txtDebugRecv;
+    @FXML private TextArea txtSendData;
+    @FXML private RadioButton rbSendHex;
+    @FXML private CheckBox chkEnableCrc;
+    @FXML private CheckBox chkTranslate;
+    @FXML private Button btnImportData;
+    @FXML private Button btnExportData;
+    @FXML private Button btnSend;
+    @FXML private Button btnClearDebugRecv;
 
-    // ==========================================
-    // 2. 核心引擎引用
-    // ==========================================
     private SerialManager manager;
+    private final ProtocolTranslationManager translationManager =
+            ProtocolTranslationManager.getInstance();
+    private SerialManager.SerialEventListener myListener;
 
-    // ==========================================
-    // 3. 初始化
-    // ==========================================
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        manager = SerialManager.getInstance(); // 获取全局单例引擎
-
-        // 默认勾选 CRC，与底层引擎同步状态
-        chkEnableCrc.setSelected(manager.isPortOpen());
-        // 更好的做法是读取 SerialManager 的当前状态，这里默认给 true
-        chkEnableCrc.setSelected(true);
-
-        // 注册调试界面专属的监听器
+        manager = SerialManager.getInstance();
+        if (chkEnableCrc != null) chkEnableCrc.setSelected(true);
+        if (chkTranslate != null) chkTranslate.setSelected(true);
         setupListeners();
     }
 
     private void setupListeners() {
-        manager.addListener(new SerialManager.SerialEventListener() {
+        myListener = new SerialManager.SerialEventListener() {
             @Override
             public void onRawData(String rawHex) {
-                // 调试界面核心：实时接收并显示原始 Hex 报文
-                Platform.runLater(() -> txtDebugRecv.appendText(rawHex + "\n"));
+                Platform.runLater(() -> {
+                    if (chkTranslate != null && chkTranslate.isSelected()) {
+                        String translated = translationManager.translate(rawHex);
+                        txtDebugRecv.appendText(translated + "\n");
+                    } else {
+                        txtDebugRecv.appendText(rawHex + "\n");
+                    }
+                });
             }
 
             @Override
             public void onTranslatedData(String translatedText) {
-                // 调试界面忽略翻译后的业务数据
+                // SerialManager 不再主动触发
             }
 
             @Override
             public void onSystemLog(String log) {
-                // 显示系统日志，方便调试人员知晓串口状态变化
                 Platform.runLater(() -> txtDebugRecv.appendText("[系统] " + log + "\n"));
             }
 
             @Override
             public void onError(String error) {
-                // 显示错误信息 (如 CRC 校验失败等)
                 Platform.runLater(() -> txtDebugRecv.appendText("[错误] " + error + "\n"));
             }
-        });
+        };
+        manager.addListener("DebugView", myListener);
     }
 
-    // ==========================================
-    // 4. 发送数据逻辑
-    // ==========================================
     @FXML
     private void sendData() {
         if (!manager.isPortOpen()) {
-            txtDebugRecv.appendText("[提示] 串口未打开，无法发送！\n");
+            showAlert(Alert.AlertType.WARNING, "提示", "请先打开串口！");
             return;
         }
 
@@ -89,70 +83,95 @@ public class DebugViewController implements Initializable {
         if (input.isEmpty()) return;
 
         try {
-            byte[] dataToSend;
-
-            if (rbSendHex.isSelected()) {
-                // HEX 格式发送：去除所有空格和换行
-                String hexStr = input.replace(" ", "").replace("\n", "").replace("\r", "");
-                if (hexStr.length() % 2 != 0) {
-                    txtDebugRecv.appendText("[错误] HEX格式错误，长度必须为偶数！\n");
-                    return;
-                }
-
-                dataToSend = new byte[hexStr.length() / 2];
-                for (int i = 0; i < dataToSend.length; i++) {
-                    int high = Character.digit(hexStr.charAt(i * 2), 16);
-                    int low = Character.digit(hexStr.charAt(i * 2 + 1), 16);
-                    if (high == -1 || low == -1) {
-                        txtDebugRecv.appendText("[错误] 包含非HEX字符！\n");
-                        return;
-                    }
-                    dataToSend[i] = (byte) ((high << 4) | low);
-                }
-            } else {
-                // ASCII 格式发送
-                dataToSend = input.getBytes(StandardCharsets.UTF_8);
+            String cleanHex = input.replace(" ", "").replace("\n", "").replace("\r", "");
+            if (cleanHex.length() % 2 != 0) {
+                showAlert(Alert.AlertType.ERROR, "格式错误", "HEX格式错误，长度必须为偶数！");
+                return;
             }
 
-            // 同步 CRC 开关状态给核心引擎
-            manager.setCrcEnabled(chkEnableCrc.isSelected());
+            byte[] dataToSend = new byte[cleanHex.length() / 2];
+            for (int i = 0; i < dataToSend.length; i++) {
+                int high = Character.digit(cleanHex.charAt(i * 2), 16);
+                int low = Character.digit(cleanHex.charAt(i * 2 + 1), 16);
+                if (high == -1 || low == -1) {
+                    showAlert(Alert.AlertType.ERROR, "格式错误", "包含非HEX字符，请检查输入！");
+                    return;
+                }
+                dataToSend[i] = (byte) ((high << 4) | low);
+            }
 
-            // 调用核心引擎统一发送 (引擎内部会处理CRC追加和日志广播)
-            manager.sendData(dataToSend);
+            boolean crc = (chkEnableCrc == null) || chkEnableCrc.isSelected();
+            manager.setCrcEnabled(crc);
+            manager.sendData(dataToSend, "DebugView");
 
         } catch (Exception e) {
-            txtDebugRecv.appendText("[异常] 发送失败: " + e.getMessage() + "\n");
+            showAlert(Alert.AlertType.ERROR, "发送异常", e.getMessage());
         }
     }
 
-    // ==========================================
-    // 5. 辅助操作逻辑 (清空、导入)
-    // ==========================================
     @FXML
     private void clearDebugRecv() {
-        // 调用核心引擎的统一清空工具
         manager.clearTextAreas(txtDebugRecv);
     }
 
     @FXML
     private void importTxtData() {
-        // 获取窗口用于挂载文件选择器
-        Window stage = btnImportData.getScene().getWindow();
+        String content = manager.importTextData(btnImportData.getScene().getWindow());
+        if (content != null) txtSendData.setText(content);
+    }
 
-        // 调用核心引擎的统一导入工具
-        String content = manager.importTextData(stage);
+    @FXML
+    private void exportRecvData() {
+        String content = txtDebugRecv.getText();
+        if (content == null || content.trim().isEmpty()) {
+            showAlert(Alert.AlertType.WARNING, "提示", "接收区为空，无数据可导出！");
+            return;
+        }
 
-        if (content != null) {
-            txtSendData.setText(content);
+        String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("导出接收数据");
+        chooser.setInitialFileName("debug_recv_" + timestamp + ".txt");
+        chooser.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter("文本文件 (*.txt)", "*.txt"),
+                new FileChooser.ExtensionFilter("CSV 文件 (*.csv)", "*.csv"),
+                new FileChooser.ExtensionFilter("所有文件 (*.*)", "*.*"));
+
+        File file = chooser.showSaveDialog(btnExportData.getScene().getWindow());
+        if (file == null) return;
+
+        try {
+            byte[] bom = new byte[]{(byte) 0xEF, (byte) 0xBB, (byte) 0xBF};
+            byte[] body = content.getBytes(StandardCharsets.UTF_8);
+            byte[] out = new byte[bom.length + body.length];
+            System.arraycopy(bom, 0, out, 0, bom.length);
+            System.arraycopy(body, 0, out, bom.length, body.length);
+            Files.write(file.toPath(), out);
+            showAlert(Alert.AlertType.INFORMATION, "成功",
+                    "接收数据已导出到:\n" + file.getAbsolutePath());
+        } catch (IOException e) {
+            showAlert(Alert.AlertType.ERROR, "导出失败", e.getMessage());
         }
     }
+
+    @FXML
+    private void toggleTranslation() {
+        // 只控制本页显示方式
+    }
+
     public void onDestroy() {
-        // 移除所有监听器
-        manager.removeListener((SerialManager.SerialEventListener) this);
-        // 清理其他资源
-        if (txtDebugRecv != null) {
-            txtDebugRecv.clear();
+        if (myListener != null && manager != null) {
+            manager.removeListener(myListener);
+            myListener = null;
         }
+        if (txtDebugRecv != null) txtDebugRecv.clear();
     }
 
+    private void showAlert(Alert.AlertType type, String title, String content) {
+        Alert alert = new Alert(type);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(content);
+        alert.showAndWait();
+    }
 }
