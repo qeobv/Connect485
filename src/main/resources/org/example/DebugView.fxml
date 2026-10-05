@@ -21,7 +21,7 @@
             <HBox alignment="CENTER_LEFT" spacing="8">
                 <Label text="底层通讯调试模式" styleClass="title-label"/>
             </HBox>
-            <Label text="此处显示的是未经翻译的原始收发报文"
+            <Label text="此处显示的是原始收发报文，可选择是否翻译"
                    style="-fx-font-size: 12px;"/>
         </VBox>
     </top>
