@@ -51,11 +51,16 @@ public class HistoryRecordController implements Initializable {
             @Override
             public void onRawData(String rawHex) {
                 if (rawHex == null) return;
-
-                // ★ 只处理接收，不处理发送
                 if (rawHex.contains("发送]:")) return;
                 if (!rawHex.contains("接收]:")) return;
 
+                // ★ 过滤 0x03
+                String pureHex = rawHex.substring(rawHex.indexOf("]:") + 2)
+                        .replaceAll("[^0-9A-Fa-f]", "").toUpperCase();
+                if (pureHex.length() >= 4 && "03".equals(pureHex.substring(2, 4))) {
+                    return;
+                }
+                System.out.println("历史页收到: " + rawHex);
                 String translated = translationManager.translate(rawHex);
                 if (translated == null || translated.trim().isEmpty()) return;
                 if (translated.startsWith("不支持")) return;
@@ -64,9 +69,7 @@ public class HistoryRecordController implements Initializable {
 
                 String timestamp = LocalDateTime.now().format(TIME_FMT);
                 fullRecords.add(String.format("[%s] %s", timestamp, translated));
-
-                Platform.runLater(() ->
-                        records.add(new RecordItem(timestamp, translated)));
+                Platform.runLater(() -> records.add(new RecordItem(timestamp, translated)));
             }
 
             @Override

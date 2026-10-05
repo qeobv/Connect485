@@ -98,15 +98,15 @@
         <VBox spacing="16" alignment="CENTER"
               style="-fx-padding: 20;">
 
-            <!-- 开度仪表容器（Gauge 在 Java 里创建后加入） -->
+            <!-- 开度仪表容器 -->
             <StackPane fx:id="gaugeContainer" prefWidth="320" prefHeight="320"/>
 
             <!-- 数值信息 -->
             <HBox spacing="40" alignment="CENTER"
                   style="-fx-padding: 12 24 12 24;
-                         -fx-background-color: white;
-                         -fx-background-radius: 8;
-                         -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.06), 6, 0, 0, 2);">
+                     -fx-background-color: white;
+                     -fx-background-radius: 8;
+                     -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.06), 6, 0, 0, 2);">
 
                 <VBox alignment="CENTER" spacing="4">
                     <Label text="实际力矩" style="-fx-font-size: 12px; -fx-text-fill: #6B7280;"/>
@@ -129,16 +129,62 @@
                 </VBox>
             </HBox>
 
-            <!-- 给定开度输入 -->
+            <!-- 给定开度 + 控制方式 -->
+            <HBox spacing="20" alignment="CENTER">
+                <HBox spacing="8" alignment="CENTER">
+                    <Label text="给定开度:" style="-fx-font-size: 14px;"/>
+                    <TextField fx:id="txtSetOpenRatio" prefWidth="80" promptText="0~100 %"/>
+                    <Button fx:id="btnSetOpenRatio" onAction="#setOpenRatio"
+                            text="设置" styleClass="button-primary" prefWidth="80">
+                        <graphic>
+                            <FontIcon iconLiteral="mdi2t-target" iconSize="16"/>
+                        </graphic>
+                    </Button>
+                </HBox>
+
+                <HBox spacing="8" alignment="CENTER">
+                    <Label text="控制方式:" style="-fx-font-size: 14px;"/>
+                    <ComboBox fx:id="cmbControlMode" prefWidth="120"/>
+                    <Button fx:id="btnSetControlMode" onAction="#setControlMode"
+                            text="设置" styleClass="button-primary" prefWidth="80">
+                        <graphic>
+                            <FontIcon iconLiteral="mdi2c-cog-sync" iconSize="16"/>
+                        </graphic>
+                    </Button>
+                </HBox>
+            </HBox>
+
+            <!-- 阀门控制按钮 -->
             <HBox spacing="12" alignment="CENTER">
-                <Label text="给定开度:" style="-fx-font-size: 14px;"/>
-                <TextField fx:id="txtSetOpenRatio" prefWidth="100" promptText="0~100"/>
-                <Label text="\%" style="-fx-font-size: 14px;"/>
-                <Button fx:id="btnSetOpenRatio" onAction="#setOpenRatio"
-                        text="设置" styleClass="button-primary" prefWidth="100"/>
+                <Button fx:id="btnOpenValve" onAction="#openValve"
+                        text="开阀" styleClass="button-success" prefWidth="100" prefHeight="40">
+                    <graphic>
+                        <FontIcon iconLiteral="mdi2v-valve-open" iconSize="18"/>
+                    </graphic>
+                </Button>
+
+                <Button fx:id="btnCloseValve" onAction="#closeValve"
+                        text="关阀" styleClass="button-danger" prefWidth="100" prefHeight="40">
+                    <graphic>
+                        <FontIcon iconLiteral="mdi2v-valve-closed" iconSize="18"/>
+                    </graphic>
+                </Button>
+
+                <Button fx:id="btnStopValve" onAction="#stopValve"
+                        text="停止" prefWidth="100" prefHeight="40">
+                    <graphic>
+                        <FontIcon iconLiteral="mdi2s-stop-circle" iconSize="18"/>
+                    </graphic>
+                </Button>
+
+                <Button fx:id="btnResetAlarm" onAction="#resetAlarm"
+                        text="复归" prefWidth="100" prefHeight="40">
+                    <graphic>
+                        <FontIcon iconLiteral="mdi2r-restore" iconSize="18"/>
+                    </graphic>
+                </Button>
             </HBox>
 
         </VBox>
     </center>
-
 </BorderPane>

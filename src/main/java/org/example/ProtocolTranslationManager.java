@@ -33,7 +33,6 @@ public class ProtocolTranslationManager {
     public String translate(String raw) {
         if (raw == null) return null;
 
-        // 只处理完整帧
         boolean isCompleteFrame = raw.contains("接收]:") || raw.contains("发送]:");
         if (!isCompleteFrame) return null;
 
@@ -42,7 +41,6 @@ public class ProtocolTranslationManager {
 
         String funcCode = pureHex.substring(2, 4).toUpperCase();
 
-        // ★ 0x64 / 0x66 请求帧过滤（byteCount = 0 表示无数据区）
         if ("64".equals(funcCode) || "66".equals(funcCode)) {
             int byteCount = Integer.parseInt(pureHex.substring(4, 6), 16);
             if (byteCount == 0) return null;
@@ -52,7 +50,7 @@ public class ProtocolTranslationManager {
             case "64": return translateFull(pureHex);
             case "66": return translatePart(pureHex);
             case "03": return ModbusUtils.parseModbusFrame(hexToBytes(pureHex));
-            default:   return "不支持的功能码: " + funcCode;
+            default:   return null;   // ★ 不返回「不支持」
         }
     }
 

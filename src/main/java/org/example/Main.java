@@ -1,6 +1,5 @@
 package org.example;
 
-import atlantafx.base.theme.PrimerDark;
 import atlantafx.base.theme.PrimerLight;
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -9,14 +8,13 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 
-import java.net.URL;
-
 public class Main extends Application {
 
     @Override
     public void start(Stage primaryStage) throws Exception {
-        // ★ 设置 AtlantaFX 主题（必须在加载 FXML / 创建任何控件之前）
+        // 设置 AtlantaFX 主题
         Application.setUserAgentStylesheet(new PrimerLight().getUserAgentStylesheet());
+
         // 加载 FXML
         FXMLLoader loader = new FXMLLoader(getClass().getResource("SerialUI.fxml"));
         Parent root = loader.load();
@@ -24,17 +22,16 @@ public class Main extends Application {
         scene.getStylesheets().add(
                 getClass().getResource("/org/example/style.css").toExternalForm()
         );
-        primaryStage.setScene(scene);
-        primaryStage.setTitle("Java 串口调试助手 v2.1.0");
 
-        // 添加窗口关闭事件处理
+        primaryStage.setScene(scene);
+        primaryStage.setTitle("Java 串口调试助手 v2.2.0");
+
+        // 窗口关闭事件
         primaryStage.setOnCloseRequest(event -> {
-            // 获取控制器并关闭串口
             SerialUIController controller = loader.getController();
             if (controller != null) {
                 controller.closeSerialPort();
             }
-            // 确保 JavaFX 应用完全退出
             Platform.exit();
             System.exit(0);
         });
@@ -43,7 +40,6 @@ public class Main extends Application {
     }
 
     public static void main(String[] args) {
-        // 启动 JavaFX 应用
         launch(args);
     }
 }

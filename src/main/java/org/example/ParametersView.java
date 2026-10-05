@@ -69,11 +69,18 @@ public class ParametersView {
         myListener = new SerialManager.SerialEventListener() {
             @Override
             public void onRawData(String rawHex) {
-                receivedData.append(rawHex).append("\n");
-
-                // ★ 只处理接收
+                if (rawHex == null) return;
                 if (rawHex.contains("发送]:")) return;
                 if (!rawHex.contains("接收]:")) return;
+
+                // ★ 过滤 0x03 轮询响应
+                String pureHex = rawHex.substring(rawHex.indexOf("]:") + 2)
+                        .replaceAll("[^0-9A-Fa-f]", "").toUpperCase();
+                if (pureHex.length() >= 4 && "03".equals(pureHex.substring(2, 4))) {
+                    return;
+                }
+
+                receivedData.append(rawHex).append("\n");
 
                 String translated = translationManager.translate(rawHex);
                 if (translated == null || translated.trim().isEmpty()) return;

@@ -59,6 +59,8 @@
                 <CheckBox fx:id="chkEnableCrc" selected="true" text="追加 Modbus CRC"/>
                 <CheckBox fx:id="chkTranslate" selected="true"
                           onAction="#toggleTranslation" text="协议翻译"/>
+                <CheckBox fx:id="chkPause" text="暂停显示"/>   <!-- ★ 新增 -->
+                <CheckBox fx:id="chkHidePolling" text="隐藏轮询"/>
                 <Region HBox.hgrow="ALWAYS"/>
             </HBox>
 

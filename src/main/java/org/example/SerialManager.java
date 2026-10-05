@@ -20,19 +20,8 @@ import java.util.TimerTask;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReference;
 
-/**
- * 串口核心管理器 (单例模式)
- *
- * 【翻译机制】
- *   本类不再做协议翻译，只广播原始 hex。
- *   翻译由各页面自行调用 ProtocolTranslationManager.translate() 完成。
- */
 public class SerialManager {
 
-    // ==========================================================
-    //  单例
-    // ==========================================================
-    private int crcFailCount = 0;
     private static SerialManager instance;
     private SerialManager() {}
 
@@ -47,9 +36,6 @@ public class SerialManager {
         return instance;
     }
 
-    // ==========================================================
-    //  底层字段
-    // ==========================================================
     private SerialPort comPort;
     private OutputStream outputStream;
     private final ByteArrayOutputStream receiveBuffer = new ByteArrayOutputStream();
@@ -57,17 +43,17 @@ public class SerialManager {
     private Timer modbusFrameTimer;
     private boolean isCurrentCrcEnabled = true;
 
-    // ==========================================================
-    //  页面隔离：活跃发送者 tag
-    // ==========================================================
     private final AtomicReference<String> activeSenderTag = new AtomicReference<>(null);
     private volatile long activeSenderTimestamp = 0L;
     private static final long SENDER_TAG_EXPIRE_MS = 3000L;
 
-    // ==========================================================
-    //  设备地址
-    // ==========================================================
     private final AtomicReference<Integer> deviceAddress = new AtomicReference<>(null);
+
+    // 轮询暂停
+    private volatile boolean pollingPaused = false;
+    public void pausePolling()  { pollingPaused = true; }
+    public void resumePolling() { pollingPaused = false; }
+    public boolean isPollingPaused() { return pollingPaused; }
 
     public void setDeviceAddress(Integer addr) {
         if (addr == null) { deviceAddress.set(null); return; }
@@ -101,9 +87,6 @@ public class SerialManager {
         return copy;
     }
 
-    // ==========================================================
-    //  监听器
-    // ==========================================================
     private final List<TaggedListener> listeners = new CopyOnWriteArrayList<>();
 
     public interface SerialEventListener {
@@ -140,9 +123,6 @@ public class SerialManager {
         listeners.removeIf(t -> pageTag.equals(t.tag));
     }
 
-    // ==========================================================
-    //  发送数据
-    // ==========================================================
     public void sendData(byte[] data, String pageTag) throws IOException {
         activeSenderTag.set(pageTag);
         activeSenderTimestamp = System.currentTimeMillis();
@@ -183,9 +163,6 @@ public class SerialManager {
 
     public void setCrcEnabled(boolean crcEnabled) { this.isCurrentCrcEnabled = crcEnabled; }
 
-    // ==========================================================
-    //  广播
-    // ==========================================================
     private String resolveActiveTag() {
         if (activeSenderTimestamp == 0) return null;
         if (System.currentTimeMillis() - activeSenderTimestamp > SENDER_TAG_EXPIRE_MS) {
@@ -194,14 +171,17 @@ public class SerialManager {
         return activeSenderTag.get();
     }
 
-    /** 只广播原始 hex，不做翻译 */
     private void broadcastRawData(String text) {
+        String active = resolveActiveTag();
         for (TaggedListener t : listeners) {
-            t.listener.onRawData(text);
+            if (t.tag == null
+                    || "DebugView".equals(t.tag)   // ★ 调试窗口始终接收
+                    || t.tag.equals(active)) {
+                t.listener.onRawData(text);
+            }
         }
     }
 
-    /** 保留：页面如需要主动推送翻译后的文本，可调用此方法 */
     public void broadcastTranslatedData(String text) {
         String active = resolveActiveTag();
         for (TaggedListener t : listeners) {
@@ -219,9 +199,6 @@ public class SerialManager {
         for (TaggedListener t : listeners) t.listener.onError(error);
     }
 
-    // ==========================================================
-    //  串口开关
-    // ==========================================================
     public String[] getAvailablePorts() {
         SerialPort[] ports = SerialPort.getCommPorts();
         String[] names = new String[ports.length];
@@ -263,13 +240,11 @@ public class SerialManager {
 
         receiveBuffer.reset();
         listeners.clear();
+        pollingPaused = false;
 
         broadcastSystemLog("串口已关闭，资源已释放");
     }
 
-    // ==========================================================
-    //  读取
-    // ==========================================================
     private void startEventListening() {
         comPort.addDataListener(new SerialPortDataListener() {
             @Override
@@ -293,9 +268,6 @@ public class SerialManager {
                 int numRead = comPort.readBytes(buffer, buffer.length);
                 if (numRead > 0) {
                     receiveBuffer.write(buffer, 0, numRead);
-                    StringBuilder hexBuilder = new StringBuilder();
-                    for (byte b : buffer) hexBuilder.append(String.format("%02X ", b));
-                    broadcastRawData(hexBuilder.toString().trim());
                 }
             }
 
@@ -306,16 +278,14 @@ public class SerialManager {
                     byte[] dataSnapshot = receiveBuffer.toByteArray();
                     receiveBuffer.reset();
                     String timestamp = new SimpleDateFormat("HH:mm:ss.SSS").format(System.currentTimeMillis());
-                    broadcastRawData("[" + timestamp + " 接收(无CRC)]: "
-                            + new String(dataSnapshot, StandardCharsets.UTF_8));
+                    StringBuilder hexBuilder = new StringBuilder();
+                    for (byte b : dataSnapshot) hexBuilder.append(String.format("%02X ", b));
+                    broadcastRawData("[" + timestamp + " 接收(无CRC)]: " + hexBuilder.toString().trim());
                 }
             }
         } catch (Exception e) { e.printStackTrace(); }
     }
 
-    // ==========================================================
-    //  Modbus 拼包
-    // ==========================================================
     private void tryParseModbusBuffer() {
         byte[] currentData = receiveBuffer.toByteArray();
         if (currentData.length < 1) return;
@@ -341,16 +311,28 @@ public class SerialManager {
         }
     }
 
+    /**
+     * 期望帧长（回退版）：
+     *   0x03 / 0x64 / 0x66 都用标准公式 3 + byteCount + 2
+     *   异常码 5 字节
+     */
     private int calculateExpectedFrameLength(byte[] data) {
         if (data.length < 2) return -1;
         int funcCode = data[1] & 0xFF;
 
         if (funcCode > 0x80) return 5;
+
         if (funcCode == 0x03 || funcCode == 0x64 || funcCode == 0x66) {
             if (data.length < 3) return -1;
             int byteCount = data[2] & 0xFF;
             return 3 + byteCount + 2;
         }
+
+        // ★ 0x06 / 0x05 / 0x0F / 0x10 都是固定或可算长度
+        if (funcCode == 0x06 || funcCode == 0x05 || funcCode == 0x10) {
+            return 8;   // 固定 8 字节
+        }
+
         return -1;
     }
 
@@ -370,8 +352,11 @@ public class SerialManager {
                     broadcastRawData(hex.toString());
                 }
             }
-        }, 300);   // ← 100 → 300
+        }, 300);
     }
+
+    private int crcFailCount = 0;
+
     private int parseModbusFrame(byte[] bufferData) {
         int i = 0;
         while (i < bufferData.length) {
@@ -382,10 +367,15 @@ public class SerialManager {
 
             if (functionCode > 0x80) {
                 expectedFrameLength = 5;
-            } else {
+            } else if (functionCode == 0x03 || functionCode == 0x64 || functionCode == 0x66) {
                 if (bufferData.length - i < 3) break;
                 int dataByteCount = bufferData[i + 2] & 0xFF;
                 expectedFrameLength = 3 + dataByteCount + 2;
+            } else if (functionCode == 0x06 || functionCode == 0x05 || functionCode == 0x10) {
+                expectedFrameLength = 8;   // ★ 固定 8 字节
+            } else {
+                i++;
+                continue;
             }
 
             if (expectedFrameLength > 256 || expectedFrameLength < 5) { i++; continue; }
@@ -402,15 +392,17 @@ public class SerialManager {
                     broadcastRawData(hex.toString().trim());
                     i += expectedFrameLength;
                 } else {
+                    if (crcFailCount < 5) {
+                        StringBuilder dbg = new StringBuilder("CRC失败帧: ");
+                        for (byte b : completeFrame) dbg.append(String.format("%02X ", b));
+                        broadcastError(dbg.toString());
+                    }
                     crcFailCount++;
-                    StringBuilder dbg = new StringBuilder("CRC失败帧: ");
-                    for (byte b : completeFrame) dbg.append(String.format("%02X ", b));
-                    broadcastError(dbg.toString());
 
-                    if (crcFailCount > 3) {
+                    if (crcFailCount > 10) {
                         receiveBuffer.reset();
                         crcFailCount = 0;
-                        return i;   // 提前退出，下次重新同步
+                        return i;
                     }
                     i++;
                 }
@@ -420,15 +412,13 @@ public class SerialManager {
         }
         return i;
     }
-    // ==========================================================
-    //  工具
-    // ==========================================================
+
     public boolean exportTextData(String content, String initialFileName, Window ownerWindow) {
         if (content == null || content.isEmpty()) return false;
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("导出数据");
         fileChooser.setInitialFileName(initialFileName);
-        fileChooser.getExtensionFilters().addAll(new FileChooser.ExtensionFilter("txt文件", "*.txt"));
+        fileChooser.getExtensionFilters().addAll(new FileChooser.ExtensionFilter("CSV文件", "*.csv"));
         File file = fileChooser.showSaveDialog(ownerWindow);
         if (file != null) {
             try {

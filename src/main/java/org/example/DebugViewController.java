@@ -26,7 +26,13 @@ public class DebugViewController implements Initializable {
     @FXML private Button btnExportData;
     @FXML private Button btnSend;
     @FXML private Button btnClearDebugRecv;
+    @FXML private CheckBox chkPause;
 
+    @FXML private CheckBox chkHidePolling;
+
+    private boolean paused = false;
+    private boolean hidePolling = false;
+    private final StringBuilder pausedBuffer = new StringBuilder();
     private SerialManager manager;
     private final ProtocolTranslationManager translationManager =
             ProtocolTranslationManager.getInstance();
@@ -37,6 +43,14 @@ public class DebugViewController implements Initializable {
         manager = SerialManager.getInstance();
         if (chkEnableCrc != null) chkEnableCrc.setSelected(true);
         if (chkTranslate != null) chkTranslate.setSelected(true);
+
+        if (chkPause != null) {
+            chkPause.selectedProperty().addListener((obs, old, val) -> paused = val);
+        }
+        if (chkHidePolling != null) {
+            chkHidePolling.selectedProperty().addListener((obs, old, val) -> hidePolling = val);
+        }
+
         setupListeners();
     }
 
@@ -44,12 +58,25 @@ public class DebugViewController implements Initializable {
         myListener = new SerialManager.SerialEventListener() {
             @Override
             public void onRawData(String rawHex) {
-                if (!rawHex.startsWith("[")) return;
+                if (rawHex == null) return;
+
+                // 隐藏轮询的 0x03 帧
+                if (hidePolling && isPollingFrame(rawHex)) return;
+
+                if (paused) {
+                    pausedBuffer.append(rawHex).append("\n");
+                    return;
+                }
+
                 Platform.runLater(() -> {
+                    if (pausedBuffer.length() > 0) {
+                        txtDebugRecv.appendText(pausedBuffer.toString());
+                        pausedBuffer.setLength(0);
+                    }
+
                     if (chkTranslate != null && chkTranslate.isSelected()) {
                         String translated = translationManager.translate(rawHex);
                         if (translated == null) {
-                            // 翻译不了（碎片、请求帧等）→ 显示原始
                             txtDebugRecv.appendText(rawHex + "\n");
                         } else {
                             txtDebugRecv.appendText(translated + "\n");
@@ -61,9 +88,7 @@ public class DebugViewController implements Initializable {
             }
 
             @Override
-            public void onTranslatedData(String translatedText) {
-                // SerialManager 不再主动触发
-            }
+            public void onTranslatedData(String translatedText) { }
 
             @Override
             public void onSystemLog(String log) {
@@ -76,6 +101,25 @@ public class DebugViewController implements Initializable {
             }
         };
         manager.addListener("DebugView", myListener);
+    }
+
+    private boolean isPollingFrame(String rawHex) {
+        int idx = rawHex.indexOf("]:");
+        if (idx < 0) return false;
+        String hex = rawHex.substring(idx + 2)
+                .replaceAll("[^0-9A-Fa-f]", "").toUpperCase();
+        if (hex.length() < 4) return false;
+
+        // 功能码必须是 0x03
+        if (!"03".equals(hex.substring(2, 4))) return false;
+
+        // 发送帧：01 03 00 01 00 0A（起始地址 40002，10 个寄存器）
+        if (hex.length() >= 12 && hex.startsWith("01030001")) return true;
+
+        // 接收帧：01 03 14 ...（byteCount = 0x14 = 20）
+        if (hex.length() >= 6 && hex.startsWith("010314")) return true;
+
+        return false;
     }
 
     @FXML
