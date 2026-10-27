@@ -1,0 +1,238 @@
+{
+  "id": "s1z",
+  "displayName": "S1-Z 系列（多回转）",
+  "protocol": "modbus-rtu",
+  "source": "多回转S1-Z系列 MODBUS协议IO点表 20250104",
+  "registers": [
+    {
+      "addr": 5,
+      "name": "阀门当前开度值",
+      "group": "模拟量输入",
+      "access": "RO",
+      "unit": "‰",
+      "min": 0,
+      "max": 1000,
+      "sample": "010300050004D5CA"
+    },
+    {
+      "addr": 6,
+      "name": "读取当前控制方式",
+      "group": "模拟量输入",
+      "access": "RO",
+      "min": 0,
+      "max": 9,
+      "enum": "control_mode",
+      "remark": "0 就地，1 4-20mA,2电平型，3脉冲型，4二线制常开，5二线制常关，6 modbus"
+    },
+    {
+      "addr": 7,
+      "name": "读取阀门给定开度",
+      "group": "模拟量输入",
+      "access": "RO",
+      "unit": "‰",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "addr": 8,
+      "name": "电机工作电流",
+      "group": "模拟量输入",
+      "access": "RO",
+      "unit": "mA",
+      "min": 0,
+      "max": 60000
+    },
+    {
+      "addr": 11,
+      "name": "设定阀门位置",
+      "group": "模拟量输出",
+      "access": "RW",
+      "unit": "‰",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "addr": 12,
+      "name": "设定远程信号类型",
+      "group": "模拟量输出",
+      "access": "RW",
+      "min": 1,
+      "max": 9,
+      "enum": "remote_signal",
+      "remark": "1 4-20mA,2电平型，3脉冲型，4二线制常开，5二线制常关，6 开关电平+调节，\n7 开关脉冲+调节，8 modbus"
+    }
+  ],
+  "bits": [
+    {
+      "addr": 0,
+      "bit": 0,
+      "name": "阀开到位",
+      "group": "数字量输入",
+      "access": "RO",
+      "sample": "010300000001"
+    },
+    {
+      "addr": 0,
+      "bit": 1,
+      "name": "阀关到位",
+      "group": "数字量输入",
+      "access": "RO"
+    },
+    {
+      "addr": 0,
+      "bit": 2,
+      "name": "阀到指定位置",
+      "group": "数字量输入",
+      "access": "RO"
+    },
+    {
+      "addr": 1,
+      "bit": 0,
+      "name": "阀门正在开",
+      "group": "数字量输入",
+      "access": "RO",
+      "sample": "010300010001"
+    },
+    {
+      "addr": 1,
+      "bit": 1,
+      "name": "阀门正在关",
+      "group": "数字量输入",
+      "access": "RO"
+    },
+    {
+      "addr": 1,
+      "bit": 2,
+      "name": "阀门停止",
+      "group": "数字量输入",
+      "access": "RO"
+    },
+    {
+      "addr": 2,
+      "bit": 1,
+      "name": "相序异常",
+      "group": "数字量输入",
+      "access": "RO",
+      "sample": "010300020001"
+    },
+    {
+      "addr": 2,
+      "bit": 2,
+      "name": "4-20mA无输入",
+      "group": "数字量输入",
+      "access": "RO"
+    },
+    {
+      "addr": 2,
+      "bit": 3,
+      "name": "C相断线",
+      "group": "数字量输入",
+      "access": "RO"
+    },
+    {
+      "addr": 2,
+      "bit": 4,
+      "name": "电机过温",
+      "group": "数字量输入",
+      "access": "RO"
+    },
+    {
+      "addr": 2,
+      "bit": 5,
+      "name": "位置传感器异常",
+      "group": "数字量输入",
+      "access": "RO"
+    },
+    {
+      "addr": 2,
+      "bit": 8,
+      "name": "开关堵转",
+      "group": "数字量输入",
+      "access": "RO"
+    },
+    {
+      "addr": 2,
+      "bit": 9,
+      "name": "开关拒动",
+      "group": "数字量输入",
+      "access": "RO"
+    },
+    {
+      "addr": 2,
+      "bit": 10,
+      "name": "开阀过力矩",
+      "group": "数字量输入",
+      "access": "RO"
+    },
+    {
+      "addr": 2,
+      "bit": 11,
+      "name": "关阀过力矩",
+      "group": "数字量输入",
+      "access": "RO"
+    },
+    {
+      "addr": 2,
+      "bit": 12,
+      "name": "随动异常",
+      "group": "数字量输入",
+      "access": "RO"
+    },
+    {
+      "addr": 2,
+      "bit": 13,
+      "name": "反向运行",
+      "group": "数字量输入",
+      "access": "RO"
+    },
+    {
+      "addr": 3,
+      "bit": 0,
+      "name": "阀门全开",
+      "group": "数字量输出",
+      "access": "WO"
+    },
+    {
+      "addr": 3,
+      "bit": 1,
+      "name": "阀门全关",
+      "group": "数字量输出",
+      "access": "WO"
+    },
+    {
+      "addr": 3,
+      "bit": 2,
+      "name": "阀门停止",
+      "group": "数字量输出",
+      "access": "WO"
+    },
+    {
+      "addr": 4,
+      "bit": 0,
+      "name": "故障告警复归",
+      "group": "数字量输出",
+      "access": "WO"
+    }
+  ],
+  "enums": {
+    "control_mode": {
+      "0": "就地",
+      "1": "4-20mA",
+      "2": "电平型",
+      "3": "脉冲型",
+      "4": "二线制常开",
+      "5": "二线制常关",
+      "6": "modbus"
+    },
+    "remote_signal": {
+      "1": "4-20mA",
+      "2": "电平型",
+      "3": "脉冲型",
+      "4": "二线制常开",
+      "5": "二线制常关",
+      "6": "开关电平+调节",
+      "7": "开关脉冲+调节",
+      "8": "modbus"
+    }
+  }
+}

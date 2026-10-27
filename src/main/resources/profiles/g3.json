@@ -1,0 +1,326 @@
+{
+  "id": "g3",
+  "displayName": "G3 系列",
+  "protocol": "modbus-rtu",
+  "source": "G系列MODBUS协议IO点表 20250322",
+  "registers": [
+    {
+      "addr": 5,
+      "name": "阀门当前开度值",
+      "group": "模拟量输入",
+      "access": "RO",
+      "unit": "‰",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "addr": 6,
+      "name": "读取当前控制方式",
+      "group": "模拟量输入",
+      "access": "RO",
+      "min": 0,
+      "max": 9,
+      "enum": "control_mode",
+      "remark": "0 就地，1 4-20mA,\n2电平型，3脉冲型，4二线制常开，\n5二线制常关，6 modbus，\n7 profibus，8 Hart，9压差PID"
+    },
+    {
+      "addr": 7,
+      "name": "读取阀门给定开度",
+      "group": "模拟量输入",
+      "access": "RO",
+      "unit": "‰",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "addr": 8,
+      "name": "阀门实际力矩值",
+      "group": "模拟量输入",
+      "access": "RO",
+      "min": 0,
+      "max": 60000
+    },
+    {
+      "addr": 9,
+      "name": "阀门力矩单位",
+      "group": "模拟量输入",
+      "access": "RO",
+      "min": 0,
+      "max": 2,
+      "enum": "torque_unit",
+      "remark": "0 N，1 Nm,2 KN"
+    },
+    {
+      "addr": 10,
+      "name": "电机转速",
+      "group": "模拟量输入",
+      "access": "RO",
+      "unit": "rpm",
+      "min": 0,
+      "max": 6000
+    },
+    {
+      "addr": 100,
+      "name": "进压表数据写执行器",
+      "group": "模拟量输入",
+      "access": "RW",
+      "unit": "Kpa",
+      "min": 0,
+      "max": 60000,
+      "remark": "Kpa"
+    },
+    {
+      "addr": 101,
+      "name": "回压表数据写执行器",
+      "group": "模拟量输入",
+      "access": "RW",
+      "unit": "Kpa",
+      "min": 0,
+      "max": 60000,
+      "remark": "Kpa"
+    },
+    {
+      "addr": 102,
+      "name": "压差PID目标压差设置（写）",
+      "group": "模拟量输入",
+      "access": "RW",
+      "unit": "Kpa",
+      "min": 0,
+      "max": 25000,
+      "remark": "Kpa"
+    },
+    {
+      "addr": 11,
+      "name": "设定阀门位置(写)",
+      "group": "模拟量输出",
+      "access": "RW",
+      "unit": "‰",
+      "min": 0,
+      "max": 1000
+    },
+    {
+      "addr": 12,
+      "name": "设定远程信号类型（写）",
+      "group": "模拟量输出",
+      "access": "RW",
+      "min": 1,
+      "max": 9,
+      "enum": "remote_signal",
+      "remark": "1 4-20mA,\n2电平型，3脉冲型，4二线制常开，\n5二线制常关，6 modbus，\n7 profibus，8 Hart，9压差PID"
+    }
+  ],
+  "bits": [
+    {
+      "addr": 0,
+      "bit": 0,
+      "name": "阀开到位",
+      "group": "数字量输入",
+      "access": "RO"
+    },
+    {
+      "addr": 0,
+      "bit": 1,
+      "name": "阀关到位",
+      "group": "数字量输入",
+      "access": "RO"
+    },
+    {
+      "addr": 0,
+      "bit": 2,
+      "name": "阀到指定位置",
+      "group": "数字量输入",
+      "access": "RO"
+    },
+    {
+      "addr": 1,
+      "bit": 0,
+      "name": "阀门正在开",
+      "group": "数字量输入",
+      "access": "RO"
+    },
+    {
+      "addr": 1,
+      "bit": 1,
+      "name": "阀门正在关",
+      "group": "数字量输入",
+      "access": "RO"
+    },
+    {
+      "addr": 1,
+      "bit": 2,
+      "name": "阀门停止",
+      "group": "数字量输入",
+      "access": "RO"
+    },
+    {
+      "addr": 2,
+      "bit": 0,
+      "name": "告警预留0",
+      "group": "数字量输入",
+      "access": "RO"
+    },
+    {
+      "addr": 2,
+      "bit": 1,
+      "name": "PID异常",
+      "group": "数字量输入",
+      "access": "RO"
+    },
+    {
+      "addr": 2,
+      "bit": 2,
+      "name": "电机过热",
+      "group": "数字量输入",
+      "access": "RO"
+    },
+    {
+      "addr": 2,
+      "bit": 3,
+      "name": "告警预留3",
+      "group": "数字量输入",
+      "access": "RO"
+    },
+    {
+      "addr": 2,
+      "bit": 4,
+      "name": "告警预留4",
+      "group": "数字量输入",
+      "access": "RO"
+    },
+    {
+      "addr": 2,
+      "bit": 5,
+      "name": "自检失败",
+      "group": "数字量输入",
+      "access": "RO"
+    },
+    {
+      "addr": 2,
+      "bit": 6,
+      "name": "电机驱动器异常",
+      "group": "数字量输入",
+      "access": "RO"
+    },
+    {
+      "addr": 2,
+      "bit": 7,
+      "name": "电机hall异常",
+      "group": "数字量输入",
+      "access": "RO"
+    },
+    {
+      "addr": 2,
+      "bit": 8,
+      "name": "位置传感器通信异常",
+      "group": "数字量输入",
+      "access": "RO"
+    },
+    {
+      "addr": 2,
+      "bit": 9,
+      "name": "4-20mA断线",
+      "group": "数字量输入",
+      "access": "RO"
+    },
+    {
+      "addr": 2,
+      "bit": 10,
+      "name": "电机堵转",
+      "group": "数字量输入",
+      "access": "RO"
+    },
+    {
+      "addr": 2,
+      "bit": 11,
+      "name": "电机拒动",
+      "group": "数字量输入",
+      "access": "RO"
+    },
+    {
+      "addr": 2,
+      "bit": 12,
+      "name": "电机反向运行",
+      "group": "数字量输入",
+      "access": "RO"
+    },
+    {
+      "addr": 2,
+      "bit": 13,
+      "name": "开过力矩",
+      "group": "数字量输入",
+      "access": "RO"
+    },
+    {
+      "addr": 2,
+      "bit": 14,
+      "name": "关过力矩",
+      "group": "数字量输入",
+      "access": "RO"
+    },
+    {
+      "addr": 2,
+      "bit": 15,
+      "name": "传动异常",
+      "group": "数字量输入",
+      "access": "RO"
+    },
+    {
+      "addr": 3,
+      "bit": 0,
+      "name": "阀门全开（写）",
+      "group": "数字量输出",
+      "access": "WO"
+    },
+    {
+      "addr": 3,
+      "bit": 1,
+      "name": "阀门全关（写）",
+      "group": "数字量输出",
+      "access": "WO"
+    },
+    {
+      "addr": 3,
+      "bit": 2,
+      "name": "阀门停止（写）",
+      "group": "数字量输出",
+      "access": "WO"
+    },
+    {
+      "addr": 4,
+      "bit": 0,
+      "name": "故障告警复归（写）",
+      "group": "数字量输出",
+      "access": "WO"
+    }
+  ],
+  "enums": {
+    "control_mode": {
+      "0": "就地",
+      "1": "4-20mA",
+      "2": "电平型",
+      "3": "脉冲型",
+      "4": "二线制常开",
+      "5": "二线制常关",
+      "6": "modbus",
+      "7": "profibus",
+      "8": "Hart",
+      "9": "压差PID"
+    },
+    "torque_unit": {
+      "0": "N",
+      "1": "Nm",
+      "2": "KN"
+    },
+    "remote_signal": {
+      "1": "4-20mA",
+      "2": "电平型",
+      "3": "脉冲型",
+      "4": "二线制常开",
+      "5": "二线制常关",
+      "6": "modbus",
+      "7": "profibus",
+      "8": "Hart",
+      "9": "压差PID"
+    }
+  }
+}
