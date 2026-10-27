@@ -14,6 +14,21 @@
     -fx-font-size: 13px;
 }
 
+/* ---------- Segoe MDL2 Assets 系统图标（Windows 内置，打包后可用） ---------- */
+.mdl2-icon {
+    -fx-font-family: "Segoe MDL2 Assets";
+    -fx-font-size: 16px;
+}
+.mdl2-icon-lg {
+    -fx-font-size: 18px;
+}
+
+/* ---------- Unicode 符号图标（不依赖图标字体，中文字体自带字形） ---------- */
+.sym-icon {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+}
+
 /* =========================================================
    顶部连接区（浅蓝渐变）
    主界面 + 参数页 + 历史页 + 调试页 共用

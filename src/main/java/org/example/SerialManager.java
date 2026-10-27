@@ -3,9 +3,11 @@ package org.example;
 import com.fazecast.jSerialComm.SerialPort;
 import com.fazecast.jSerialComm.SerialPortDataListener;
 import com.fazecast.jSerialComm.SerialPortEvent;
+import com.fazecast.jSerialComm.SerialPortTimeoutException;
 import javafx.scene.control.TextArea;
 import javafx.stage.FileChooser;
 import javafx.stage.Window;
+import org.example.core.BoardProfile;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -39,15 +41,46 @@ public class SerialManager {
     private SerialPort comPort;
     private OutputStream outputStream;
     private final ByteArrayOutputStream receiveBuffer = new ByteArrayOutputStream();
+    private final Object receiveLock = new Object();
     private Timer readTimer;
     private Timer modbusFrameTimer;
     private boolean isCurrentCrcEnabled = true;
+
+    // 记录最近一次成功打开的端口参数（用于自动重连）
+    private volatile String lastPortName = null;
+    private volatile int lastBaudRate = 9600;
+
+    // 当前板卡系列档案（未显式设置时使用默认系列）
+    private volatile BoardProfile currentProfile;
+
+    public void setProfile(BoardProfile profile) {
+        if (profile == null) throw new IllegalArgumentException("profile 不能为 null");
+        this.currentProfile = profile;
+    }
+
+    public BoardProfile getProfile() {
+        return currentProfile != null ? currentProfile : BoardProfiles.defaultProfile();
+    }
 
     private final AtomicReference<String> activeSenderTag = new AtomicReference<>(null);
     private volatile long activeSenderTimestamp = 0L;
     private static final long SENDER_TAG_EXPIRE_MS = 3000L;
 
     private final AtomicReference<Integer> deviceAddress = new AtomicReference<>(null);
+
+    // 最近一次收到数据的时间（用于发送前等待总线静默）
+    private volatile long lastReceiveMillis = 0;
+    // 最近一次写入完成的时间（用于保证两次发送的最小间隔）
+    private volatile long lastSendMillis = 0;
+    /** 发送前要求的接收静默时长（485 半双工：设备正在发时上位机写会失败） */
+    private static final long IDLE_REQUIRED_MS = 50;
+    /**
+     * 两次发送之间的最小间隔：覆盖"上一条命令发出后设备正在回响应"的窗口
+     * （响应传输中字节尚未到达上位机，仅凭接收静默判断会失效）。
+     */
+    private static final long SEND_GAP_MS = 100;
+    /** 等待总线就绪的最大时长，超过后直接尝试写入 */
+    private static final long MAX_IDLE_WAIT_MS = 300;
 
     // 轮询暂停
     private volatile boolean pollingPaused = false;
@@ -157,8 +190,57 @@ public class SerialManager {
         broadcastRawData("[" + timestamp + " 发送]: " + hexBuilder.toString().trim());
 
         ModbusUtils.parseSendDataToUpdateAddress(data);
-        outputStream.write(finalDataToSend);
-        outputStream.flush();
+
+        // 485 半双工：等待总线就绪再写。
+        // 条件 1：接收已静默（设备发完数据）；
+        // 条件 2：距上次发送已过最小间隔（覆盖设备响应仍在传输中的窗口）。
+        waitForBusReady();
+
+        // jSerialComm 2.10.x 底层一次写失败即抛超时异常（无内部重试）。
+        // 写失败可能因为：485 总线忙、USB 适配器睡眠唤醒、设备复位中。
+        // 递增间隔重试 5 次（20/50/100/200/200ms），给链路恢复留时间。
+        int attempts = 0;
+        long[] retryDelays = {20, 50, 100, 200, 200};
+        while (true) {
+            try {
+                outputStream.write(finalDataToSend);
+                outputStream.flush();
+                lastSendMillis = System.currentTimeMillis();
+                return;
+            } catch (SerialPortTimeoutException e) {
+                if (attempts >= retryDelays.length) {
+                    broadcastError("写入串口超时：设备可能处于复位/睡眠中或仍在发送数据，"
+                            + "请稍等数秒重试；同时检查设备电源、485 接线(A/B)、波特率设置");
+                    throw e;
+                }
+                try {
+                    Thread.sleep(retryDelays[attempts]);
+                    attempts++;
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw e;
+                }
+            }
+        }
+    }
+
+    /** 等待总线就绪（接收静默 + 发送间隔），上限 MAX_IDLE_WAIT_MS */
+    private void waitForBusReady() {
+        long deadline = System.currentTimeMillis() + MAX_IDLE_WAIT_MS;
+        while (true) {
+            long now = System.currentTimeMillis();
+            boolean receiveIdle = now - lastReceiveMillis >= IDLE_REQUIRED_MS;
+            boolean sendGapOk = now - lastSendMillis >= SEND_GAP_MS;
+            if ((receiveIdle && sendGapOk) || now >= deadline) {
+                return;
+            }
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
     }
 
     public void setCrcEnabled(boolean crcEnabled) { this.isCurrentCrcEnabled = crcEnabled; }
@@ -214,6 +296,8 @@ public class SerialManager {
         if (comPort.openPort()) {
             try { outputStream = comPort.getOutputStream(); }
             catch (Exception e) { e.printStackTrace(); }
+            lastPortName = portName;
+            lastBaudRate = baudRate;
             startEventListening();
             startHighFreqPolling();
             broadcastSystemLog("串口 " + portName + " 已打开");
@@ -221,6 +305,18 @@ public class SerialManager {
         }
         broadcastError("串口打开失败");
         return false;
+    }
+
+    /**
+     * 自动重连：设备/适配器长时间静默后可能失联（睡眠），
+     * 关闭后按原参数重开可恢复。
+     */
+    public boolean reopenPort() {
+        String portName = lastPortName;
+        int baudRate = lastBaudRate;
+        if (portName == null) return false;
+        closePort();
+        return openPort(portName, baudRate);
     }
 
     public boolean isPortOpen() { return comPort != null && comPort.isOpen(); }
@@ -238,9 +334,12 @@ public class SerialManager {
             comPort = null;
         }
 
-        receiveBuffer.reset();
-        listeners.clear();
+        synchronized (receiveLock) {
+            receiveBuffer.reset();
+        }
         pollingPaused = false;
+        lastReceiveMillis = 0;
+        lastSendMillis = 0;
 
         broadcastSystemLog("串口已关闭，资源已释放");
     }
@@ -262,28 +361,31 @@ public class SerialManager {
     }
 
     private void drainInputStream() {
-        try {
-            while (comPort != null && comPort.isOpen() && comPort.bytesAvailable() > 0) {
-                byte[] buffer = new byte[comPort.bytesAvailable()];
-                int numRead = comPort.readBytes(buffer, buffer.length);
-                if (numRead > 0) {
-                    receiveBuffer.write(buffer, 0, numRead);
+        synchronized (receiveLock) {
+            try {
+                while (comPort != null && comPort.isOpen() && comPort.bytesAvailable() > 0) {
+                    byte[] buffer = new byte[comPort.bytesAvailable()];
+                    int numRead = comPort.readBytes(buffer, buffer.length);
+                    if (numRead > 0) {
+                        receiveBuffer.write(buffer, 0, numRead);
+                        lastReceiveMillis = System.currentTimeMillis();
+                    }
                 }
-            }
 
-            if (receiveBuffer.size() > 0) {
-                if (isCurrentCrcEnabled) {
-                    tryParseModbusBuffer();
-                } else {
-                    byte[] dataSnapshot = receiveBuffer.toByteArray();
-                    receiveBuffer.reset();
-                    String timestamp = new SimpleDateFormat("HH:mm:ss.SSS").format(System.currentTimeMillis());
-                    StringBuilder hexBuilder = new StringBuilder();
-                    for (byte b : dataSnapshot) hexBuilder.append(String.format("%02X ", b));
-                    broadcastRawData("[" + timestamp + " 接收(无CRC)]: " + hexBuilder.toString().trim());
+                if (receiveBuffer.size() > 0) {
+                    if (isCurrentCrcEnabled) {
+                        tryParseModbusBuffer();
+                    } else {
+                        byte[] dataSnapshot = receiveBuffer.toByteArray();
+                        receiveBuffer.reset();
+                        String timestamp = new SimpleDateFormat("HH:mm:ss.SSS").format(System.currentTimeMillis());
+                        StringBuilder hexBuilder = new StringBuilder();
+                        for (byte b : dataSnapshot) hexBuilder.append(String.format("%02X ", b));
+                        broadcastRawData("[" + timestamp + " 接收(无CRC)]: " + hexBuilder.toString().trim());
+                    }
                 }
-            }
-        } catch (Exception e) { e.printStackTrace(); }
+            } catch (Exception e) { e.printStackTrace(); }
+        }
     }
 
     private void tryParseModbusBuffer() {
@@ -342,14 +444,16 @@ public class SerialManager {
         modbusFrameTimer.schedule(new TimerTask() {
             @Override
             public void run() {
-                if (receiveBuffer.size() > 0) {
-                    byte[] snapshot = receiveBuffer.toByteArray();
-                    receiveBuffer.reset();
-                    broadcastError("接收数据超时，可能存在残帧或CRC校验错误");
-                    String timestamp = new SimpleDateFormat("HH:mm:ss.SSS").format(System.currentTimeMillis());
-                    StringBuilder hex = new StringBuilder("[" + timestamp + " 残帧]: ");
-                    for (byte b : snapshot) hex.append(String.format("%02X ", b));
-                    broadcastRawData(hex.toString());
+                synchronized (receiveLock) {
+                    if (receiveBuffer.size() > 0) {
+                        byte[] snapshot = receiveBuffer.toByteArray();
+                        receiveBuffer.reset();
+                        broadcastError("接收数据超时，可能存在残帧或CRC校验错误");
+                        String timestamp = new SimpleDateFormat("HH:mm:ss.SSS").format(System.currentTimeMillis());
+                        StringBuilder hex = new StringBuilder("[" + timestamp + " 残帧]: ");
+                        for (byte b : snapshot) hex.append(String.format("%02X ", b));
+                        broadcastRawData(hex.toString());
+                    }
                 }
             }
         }, 300);
@@ -359,8 +463,14 @@ public class SerialManager {
 
     private int parseModbusFrame(byte[] bufferData) {
         int i = 0;
+        int parsedFrames = 0;      // 本批数据中成功解析出的合法帧数
+        boolean crcFailed = false; // 是否发生过 CRC 校验失败（滑动重同步）
+        boolean incomplete = false;// 因数据未到齐（帧长不足/尾部残片）而中断
         while (i < bufferData.length) {
-            if (bufferData.length - i < 5) break;
+            if (bufferData.length - i < 5) {
+                incomplete = true;   // 尾部不足一帧，可能还有数据在传输
+                break;
+            }
 
             int functionCode = bufferData[i + 1] & 0xFF;
             int expectedFrameLength;
@@ -368,7 +478,10 @@ public class SerialManager {
             if (functionCode > 0x80) {
                 expectedFrameLength = 5;
             } else if (functionCode == 0x03 || functionCode == 0x64 || functionCode == 0x66) {
-                if (bufferData.length - i < 3) break;
+                if (bufferData.length - i < 3) {
+                    incomplete = true;
+                    break;
+                }
                 int dataByteCount = bufferData[i + 2] & 0xFF;
                 expectedFrameLength = 3 + dataByteCount + 2;
             } else if (functionCode == 0x06 || functionCode == 0x05 || functionCode == 0x10) {
@@ -385,6 +498,7 @@ public class SerialManager {
                 System.arraycopy(bufferData, i, completeFrame, 0, expectedFrameLength);
 
                 if (Crc16Util.verifyCRC16(completeFrame, 0, expectedFrameLength)) {
+                    parsedFrames++;
                     crcFailCount = 0;
                     String timestamp = new SimpleDateFormat("HH:mm:ss.SSS").format(System.currentTimeMillis());
                     StringBuilder hex = new StringBuilder("[" + timestamp + " 接收]: ");
@@ -392,11 +506,9 @@ public class SerialManager {
                     broadcastRawData(hex.toString().trim());
                     i += expectedFrameLength;
                 } else {
-                    if (crcFailCount < 5) {
-                        StringBuilder dbg = new StringBuilder("CRC失败帧: ");
-                        for (byte b : completeFrame) dbg.append(String.format("%02X ", b));
-                        broadcastError(dbg.toString());
-                    }
+                    // 滑动一位重新尝试帧同步（设备复位时可能输出前导垃圾，
+                    // 如 "55 D0 68 01 64 ..."），此处静默跳过不报错。
+                    crcFailed = true;
                     crcFailCount++;
 
                     if (crcFailCount > 10) {
@@ -407,8 +519,18 @@ public class SerialManager {
                     i++;
                 }
             } else {
+                incomplete = true;   // 帧长不足：数据仍在传输中，等待后续字节
                 break;
             }
+        }
+
+        // 只有"数据完整且一路 CRC 失败找不到任何合法帧"才报一次错误。
+        // 数据分片传输中（incomplete）静默等待，超时由残帧机制兜底。
+        if (parsedFrames == 0 && crcFailed && !incomplete) {
+            StringBuilder dbg = new StringBuilder("接收数据CRC校验失败，无法定位帧头: ");
+            int showLen = Math.min(bufferData.length, 16);
+            for (int k = 0; k < showLen; k++) dbg.append(String.format("%02X ", bufferData[k]));
+            broadcastError(dbg.toString());
         }
         return i;
     }

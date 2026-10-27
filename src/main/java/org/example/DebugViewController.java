@@ -75,7 +75,8 @@ public class DebugViewController implements Initializable {
                     }
 
                     if (chkTranslate != null && chkTranslate.isSelected()) {
-                        String translated = translationManager.translate(rawHex);
+                        // 翻译按当前系列档案分发（G3 走完整翻译，MTA 走其结构化翻译）
+                        String translated = manager.getProfile().translate(rawHex);
                         if (translated == null) {
                             txtDebugRecv.appendText(rawHex + "\n");
                         } else {
@@ -104,22 +105,7 @@ public class DebugViewController implements Initializable {
     }
 
     private boolean isPollingFrame(String rawHex) {
-        int idx = rawHex.indexOf("]:");
-        if (idx < 0) return false;
-        String hex = rawHex.substring(idx + 2)
-                .replaceAll("[^0-9A-Fa-f]", "").toUpperCase();
-        if (hex.length() < 4) return false;
-
-        // 功能码必须是 0x03
-        if (!"03".equals(hex.substring(2, 4))) return false;
-
-        // 发送帧：01 03 00 01 00 0A（起始地址 40002，10 个寄存器）
-        if (hex.length() >= 12 && hex.startsWith("01030001")) return true;
-
-        // 接收帧：01 03 14 ...（byteCount = 0x14 = 20）
-        if (hex.length() >= 6 && hex.startsWith("010314")) return true;
-
-        return false;
+        return manager.getProfile().isPollingFrame(rawHex);
     }
 
     @FXML

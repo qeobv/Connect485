@@ -7,6 +7,7 @@ import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.*;
+import javafx.scene.text.Text;
 import javafx.stage.Stage;
 import javafx.scene.control.cell.PropertyValueFactory;
 import java.io.IOException;
@@ -19,7 +20,6 @@ import java.util.ResourceBundle;
 
 public class HistoryRecordController implements Initializable {
     private static final String PAGE_TAG = "HistoryRecordView";
-    private static final String INIT_COMMAND = "01 66 00 00 00 00";
     private static final DateTimeFormatter TIME_FMT =
             DateTimeFormatter.ofPattern("HH:mm:ss.SSS");
 
@@ -39,6 +39,27 @@ public class HistoryRecordController implements Initializable {
     public void initialize(URL location, ResourceBundle resources) {
         timeColumn.setCellValueFactory(cd -> cd.getValue().timeProperty());
         contentColumn.setCellValueFactory(cd -> cd.getValue().contentProperty());
+        // 内容为多行文本：用 Text 作单元格内容（按列宽自动换行），
+        // Text 的 prefHeight 精确，TableView 行高随内容自动撑开。
+        contentColumn.setCellFactory(col -> new TableCell<RecordItem, String>() {
+            private final Text text = new Text();
+            {
+                text.wrappingWidthProperty().bind(
+                        contentColumn.widthProperty().subtract(16));
+                setGraphic(text);
+            }
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    text.setText(null);
+                    setGraphic(null);
+                } else {
+                    text.setText(item);
+                    setGraphic(text);
+                }
+            }
+        });
         recordTable.setItems(records);
         recordTable.setPlaceholder(new Label("暂无记录，点击【刷新】获取"));
     }
@@ -61,8 +82,10 @@ public class HistoryRecordController implements Initializable {
                     return;
                 }
                 System.out.println("历史页收到: " + rawHex);
-                String translated = translationManager.translate(rawHex);
-                if (translated == null || translated.trim().isEmpty()) return;
+                String profileTranslation = manager.getProfile().translate(rawHex);
+                // 当前系列尚无该帧的翻译（如 MTA 的 0x66 历史记录）时，原样显示原始报文
+                final String translated = (profileTranslation != null) ? profileTranslation : rawHex;
+                if (translated.trim().isEmpty()) return;
                 if (translated.startsWith("不支持")) return;
                 if (translated.startsWith("数据格式错误")) return;
                 if (translated.contains("无历史记录")) return;
@@ -99,10 +122,19 @@ public class HistoryRecordController implements Initializable {
     private void sendInitCommand() {
         if (manager == null || !manager.isPortOpen()) return;
         try {
-            byte[] dataToSend = hexToBytes(INIT_COMMAND);
+            Integer addr = manager.getDeviceAddress();
+            if (addr == null) addr = 1;
+            byte[] dataToSend = manager.getProfile().buildHistoryInitCommand(addr);
+            if (dataToSend == null) {
+                System.err.println("当前板卡系列不支持历史记录");
+                return;
+            }
             manager.sendData(dataToSend, PAGE_TAG);
         } catch (Exception e) {
             System.err.println("发送初始指令失败: " + e.getMessage());
+            Platform.runLater(() -> records.add(new RecordItem(
+                    LocalDateTime.now().format(TIME_FMT),
+                    "查询命令发送失败：设备可能仍在推送数据（485 总线忙），请稍候点击【刷新】重试")));
         }
     }
 
@@ -140,17 +172,6 @@ public class HistoryRecordController implements Initializable {
             manager.removeListener(myListener);
             myListener = null;
         }
-    }
-
-    private byte[] hexToBytes(String hexString) {
-        hexString = hexString.replaceAll("\\s+", "");
-        int len = hexString.length();
-        byte[] data = new byte[len / 2];
-        for (int i = 0; i < len; i += 2) {
-            data[i / 2] = (byte) ((Character.digit(hexString.charAt(i), 16) << 4)
-                    + Character.digit(hexString.charAt(i+1), 16));
-        }
-        return data;
     }
 
     private void showInfo(String msg) {

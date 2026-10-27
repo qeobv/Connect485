@@ -124,6 +124,7 @@ public class DeviceProtocolTranslator {
 
     public static String translateFullPacket(String hexData) {
         try {
+            torqueCalibrationSwitch = "";
             // 1. 清洗数据
             String cleanHex = hexData.replaceAll("[^0-9A-Fa-f]", "").toUpperCase();
             if (cleanHex.length() < 10) return null;    // ★ 改成 null
@@ -467,8 +468,8 @@ public class DeviceProtocolTranslator {
         map.put("密码设置", String.valueOf(combineBytes(w[offset + 0],w[offset + 1])));
         //    map.put("力矩校准低点值高字节", String.valueOf(w[offset+22]));
         //    map.put("力矩校准低点值低字节", String.valueOf(w[offset+23]));
-        map.put("力矩校准开关", torqueCalibrationSwitch);
-        torqueCalibrationSwitch ="";
+        map.put("力矩校准开关", torqueCalibrationSwitch.isEmpty() ? "未知" : torqueCalibrationSwitch);
+        torqueCalibrationSwitch = "";
         map.put("空载校准值", String.valueOf(combineBytes(w[offset + 22],w[offset + 23])));
         //    map.put("力矩校准低点开阀值高字节", String.valueOf(w[offset+24]));
         //    map.put("力矩校准低点开阀值低字节", String.valueOf(w[offset+25]));

@@ -9,7 +9,6 @@
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.VBox?>
-<?import org.kordamp.ikonli.javafx.FontIcon?>
 
 <BorderPane prefHeight="560.0" prefWidth="720.0"
             xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
@@ -39,7 +38,7 @@
                 <Region HBox.hgrow="ALWAYS"/>
                 <Button fx:id="btnClearDebugRecv" onAction="#clearDebugRecv" text="清空接收区">
                     <graphic>
-                        <FontIcon iconLiteral="mdi2d-delete-sweep" iconSize="16"/>
+                        <Label text="&#xE74D;" styleClass="mdl2-icon"/>
                     </graphic>
                 </Button>
             </HBox>
@@ -75,20 +74,20 @@
             <HBox alignment="CENTER_RIGHT" spacing="10">
                 <Button fx:id="btnImportData" onAction="#importTxtData" text="导入报文">
                     <graphic>
-                        <FontIcon iconLiteral="mdi2f-file-import" iconSize="16"/>
+                        <Label text="&#xE8E5;" styleClass="mdl2-icon"/>
                     </graphic>
                 </Button>
 
                 <Button fx:id="btnExportData" onAction="#exportRecvData" text="导出接收">
                     <graphic>
-                        <FontIcon iconLiteral="mdi2e-export" iconSize="16"/>
+                        <Label text="&#xEDE1;" styleClass="mdl2-icon"/>
                     </graphic>
                 </Button>
 
                 <Button fx:id="btnSend" onAction="#sendData"
                         text="发 送" styleClass="button-primary" prefWidth="120">
                     <graphic>
-                        <FontIcon iconLiteral="mdi2s-send" iconSize="16"/>
+                        <Label text="&#xE724;" styleClass="mdl2-icon"/>
                     </graphic>
                 </Button>
             </HBox>

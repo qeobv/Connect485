@@ -10,7 +10,6 @@
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.VBox?>
-<?import org.kordamp.ikonli.javafx.FontIcon?>
 
 <VBox spacing="12"
       xmlns="http://javafx.com/javafx/21"
@@ -29,13 +28,26 @@
 
          <Button fx:id="btnRefresh" onAction="#handleRefresh" text="刷新">
             <graphic>
-               <FontIcon iconLiteral="mdi2r-refresh" iconSize="16"/>
+               <Label text="&#xE72C;" styleClass="mdl2-icon"/>
             </graphic>
          </Button>
 
          <Button fx:id="btnClear" onAction="#handleClear" text="清空">
             <graphic>
-               <FontIcon iconLiteral="mdi2d-delete-sweep" iconSize="16"/>
+               <Label text="&#xE74D;" styleClass="mdl2-icon"/>
+            </graphic>
+         </Button>
+
+         <Button fx:id="btnApplyEdits" onAction="#handleApplyEdits"
+                 text="写入设备" styleClass="button-primary">
+            <graphic>
+               <Label text="&#xE73E;" styleClass="mdl2-icon"/>
+            </graphic>
+         </Button>
+
+         <Button fx:id="btnDiscardEdits" onAction="#handleDiscardEdits" text="放弃修改">
+            <graphic>
+               <Label text="&#xE7A7;" styleClass="mdl2-icon"/>
             </graphic>
          </Button>
       </HBox>
@@ -62,7 +74,7 @@
             <Button fx:id="btnDownload" onAction="#handleDownload"
                     text="下载配置" styleClass="button-primary">
                <graphic>
-                  <FontIcon iconLiteral="mdi2d-download" iconSize="16"/>
+                  <Label text="&#xE896;" styleClass="mdl2-icon"/>
                </graphic>
             </Button>
             <Region HBox.hgrow="ALWAYS"/>
@@ -79,14 +91,14 @@
          <HBox alignment="CENTER_RIGHT" spacing="10">
             <Button fx:id="btnUpload" onAction="#handleUpload" text="上传配置">
                <graphic>
-                  <FontIcon iconLiteral="mdi2u-upload" iconSize="16"/>
+                  <Label text="&#xE898;" styleClass="mdl2-icon"/>
                </graphic>
             </Button>
 
             <Button fx:id="btnUpload1" onAction="#handleSend"
                     text="发送" styleClass="button-primary">
                <graphic>
-                  <FontIcon iconLiteral="mdi2s-send" iconSize="16"/>
+                  <Label text="&#xE724;" styleClass="mdl2-icon"/>
                </graphic>
             </Button>
          </HBox>

@@ -12,7 +12,6 @@
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
-<?import org.kordamp.ikonli.javafx.FontIcon?>
 
 <BorderPane fx:id="mainPane"
             minHeight="500.0" minWidth="700.0"
@@ -38,11 +37,14 @@
 
                 <Button fx:id="btnRefresh" onAction="#refreshPorts" text="刷新">
                     <graphic>
-                        <FontIcon iconLiteral="mdi2r-refresh" iconSize="16"/>
+                        <Label text="&#xE72C;" styleClass="mdl2-icon"/>
                     </graphic>
                 </Button>
 
                 <Region HBox.hgrow="ALWAYS"/>
+
+                <Label text="系列:"/>
+                <ComboBox fx:id="cmbBoardSeries" prefWidth="150" promptText="板卡系列"/>
 
                 <Label text="设备地址:"/>
                 <TextField fx:id="txtDeviceAddress" prefWidth="70"
@@ -54,7 +56,7 @@
                 <Button fx:id="btnOpenPort" onAction="#openSerialPort"
                         text="连接串口" styleClass="button-success">
                     <graphic>
-                        <FontIcon iconLiteral="mdi2p-power" iconSize="16"/>
+                        <Label text="&#xE7E8;" styleClass="mdl2-icon"/>
                     </graphic>
                 </Button>
 
@@ -62,7 +64,7 @@
                         onAction="#closeSerialPort"
                         text="断开串口" styleClass="button-danger">
                     <graphic>
-                        <FontIcon iconLiteral="mdi2c-close-circle" iconSize="16"/>
+                        <Label text="&#xE711;" styleClass="mdl2-icon"/>
                     </graphic>
                 </Button>
 
@@ -70,13 +72,13 @@
 
                 <Button fx:id="btnParameters" onAction="#showParameters" text="配置查看">
                     <graphic>
-                        <FontIcon iconLiteral="mdi2c-cog" iconSize="16"/>
+                        <Label text="&#xE713;" styleClass="mdl2-icon"/>
                     </graphic>
                 </Button>
 
                 <MenuButton fx:id="menuRecords" text="记录查看">
                     <graphic>
-                        <FontIcon iconLiteral="mdi2h-history" iconSize="16"/>
+                        <Label text="&#xE81C;" styleClass="mdl2-icon"/>
                     </graphic>
                     <items>
                         <MenuItem onAction="#showHistoryRecords" text="历史记录"/>
@@ -86,7 +88,7 @@
                 <Button fx:id="btnOpenDebug" onAction="#openDebugWindow"
                         text="调试窗口" styleClass="button-primary">
                     <graphic>
-                        <FontIcon iconLiteral="mdi2b-bug" iconSize="16"/>
+                        <Label text="&#xEBE8;" styleClass="mdl2-icon"/>
                     </graphic>
                 </Button>
             </HBox>
@@ -113,7 +115,7 @@
                     <Label fx:id="lblTorque" text="--" style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
                 </VBox>
 
-                <VBox alignment="CENTER" spacing="4">
+                <VBox fx:id="speedBox" alignment="CENTER" spacing="4">
                     <Label text="电机转速" style="-fx-font-size: 12px; -fx-text-fill: #6B7280;"/>
                     <Label fx:id="lblSpeed" text="--" style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
                 </VBox>
@@ -137,7 +139,7 @@
                     <Button fx:id="btnSetOpenRatio" onAction="#setOpenRatio"
                             text="设置" styleClass="button-primary" prefWidth="80">
                         <graphic>
-                            <FontIcon iconLiteral="mdi2t-target" iconSize="16"/>
+                            <Label text="&#xE718;" styleClass="mdl2-icon"/>
                         </graphic>
                     </Button>
                 </HBox>
@@ -148,7 +150,7 @@
                     <Button fx:id="btnSetControlMode" onAction="#setControlMode"
                             text="设置" styleClass="button-primary" prefWidth="80">
                         <graphic>
-                            <FontIcon iconLiteral="mdi2c-cog-sync" iconSize="16"/>
+                            <Label text="&#xE895;" styleClass="mdl2-icon"/>
                         </graphic>
                     </Button>
                 </HBox>
@@ -159,28 +161,28 @@
                 <Button fx:id="btnOpenValve" onAction="#openValve"
                         text="开阀" styleClass="button-success" prefWidth="100" prefHeight="40">
                     <graphic>
-                        <FontIcon iconLiteral="mdi2v-valve-open" iconSize="18"/>
+                        <Label text="▶" styleClass="sym-icon"/>
                     </graphic>
                 </Button>
 
                 <Button fx:id="btnCloseValve" onAction="#closeValve"
                         text="关阀" styleClass="button-danger" prefWidth="100" prefHeight="40">
                     <graphic>
-                        <FontIcon iconLiteral="mdi2v-valve-closed" iconSize="18"/>
+                        <Label text="◀" styleClass="sym-icon"/>
                     </graphic>
                 </Button>
 
                 <Button fx:id="btnStopValve" onAction="#stopValve"
                         text="停止" prefWidth="100" prefHeight="40">
                     <graphic>
-                        <FontIcon iconLiteral="mdi2s-stop-circle" iconSize="18"/>
+                        <Label text="■" styleClass="sym-icon"/>
                     </graphic>
                 </Button>
 
                 <Button fx:id="btnResetAlarm" onAction="#resetAlarm"
                         text="复归" prefWidth="100" prefHeight="40">
                     <graphic>
-                        <FontIcon iconLiteral="mdi2r-restore" iconSize="18"/>
+                        <Label text="↺" styleClass="sym-icon"/>
                     </graphic>
                 </Button>
             </HBox>

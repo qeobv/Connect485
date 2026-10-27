@@ -8,7 +8,6 @@
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.VBox?>
-<?import org.kordamp.ikonli.javafx.FontIcon?>
 
 <VBox xmlns="http://javafx.com/javafx/21"
       xmlns:fx="http://javafx.com/fxml/1"
@@ -42,20 +41,20 @@
    <HBox spacing="10" alignment="CENTER_RIGHT">
       <Button text="刷新" onAction="#onRefreshAction" prefWidth="90">
          <graphic>
-            <FontIcon iconLiteral="mdi2r-refresh" iconSize="16"/>
+            <Label text="&#xE72C;" styleClass="mdl2-icon"/>
          </graphic>
       </Button>
 
       <Button text="下载" onAction="#onDownloadAction" prefWidth="90">
          <graphic>
-            <FontIcon iconLiteral="mdi2d-download" iconSize="16"/>
+            <Label text="&#xE896;" styleClass="mdl2-icon"/>
          </graphic>
       </Button>
 
       <Button text="关闭" onAction="#onCloseAction"
               prefWidth="90" styleClass="button-danger">
          <graphic>
-            <FontIcon iconLiteral="mdi2c-close" iconSize="16"/>
+            <Label text="&#xE711;" styleClass="mdl2-icon"/>
          </graphic>
       </Button>
    </HBox>

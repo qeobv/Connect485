@@ -5,6 +5,7 @@ import eu.hansolo.medusa.GaugeBuilder;
 import eu.hansolo.medusa.Section;
 import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
+import javafx.animation.PauseTransition;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
@@ -14,9 +15,12 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 import javafx.util.Duration;
+import org.example.core.ControlAction;
+import org.example.core.DeviceState;
 
 import java.io.IOException;
 import java.net.URL;
@@ -27,6 +31,7 @@ public class SerialUIController implements Initializable {
     // ========== 顶部控件 ==========
     @FXML private ComboBox<String> portComboBox;
     @FXML private ComboBox<String> baudRateComboBox;
+    @FXML private ComboBox<String> cmbBoardSeries;
     @FXML private Button btnOpenPort;
     @FXML private Button btnClosePort;
     @FXML private Button btnRefresh;
@@ -44,6 +49,7 @@ public class SerialUIController implements Initializable {
     // ========== 数值标签 ==========
     @FXML private Label lblTorque;
     @FXML private Label lblSpeed;
+    @FXML private VBox speedBox;
     @FXML private Label lblControlMode;
     @FXML private Label lblValveState;
 
@@ -65,6 +71,7 @@ public class SerialUIController implements Initializable {
     private SerialManager manager;
     private SerialManager.SerialEventListener myListener;
     private Timeline poller;
+    private PauseTransition responseTimeout;
 
     private static final String PAGE_TAG = "SerialUI";
 
@@ -75,6 +82,9 @@ public class SerialUIController implements Initializable {
 
     private volatile int currentValveState = -1;
     private volatile boolean waitingForResponse = false;
+    private int pollSendFailCount = 0;
+    /** 配置/历史记录子窗口打开计数（打开期间禁止阀门控制命令） */
+    private int subWindowCount = 0;
 
     // ==========================================
     //  初始化
@@ -82,6 +92,7 @@ public class SerialUIController implements Initializable {
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         manager = SerialManager.getInstance();
+        manager.setProfile(BoardProfiles.defaultProfile());
 
         baudRateComboBox.getItems().addAll("9600", "19200", "38400", "57600", "115200");
         btnClosePort.setDisable(true);
@@ -98,17 +109,50 @@ public class SerialUIController implements Initializable {
             manager.setDeviceAddress(1);
         } catch (IllegalArgumentException ignored) { }
 
-        // 控制方式下拉
+        // 控制方式下拉（选项由板卡系列档案提供）
         if (cmbControlMode != null) {
-            cmbControlMode.getItems().addAll(
-                    "4-20mA", "电平型", "脉冲型", "二线制常开", "二线制常关",
-                    "Modbus", "Profibus", "Hart", "压差PID");
+            cmbControlMode.getItems().addAll(manager.getProfile().controlModeOptions());
             cmbControlMode.getSelectionModel().select("Modbus");
+        }
+
+        // 板卡系列下拉：填充已注册系列，切换系列时刷新控制方式选项与转速栏显隐
+        if (cmbBoardSeries != null) {
+            for (org.example.core.BoardProfile p : BoardProfiles.all()) {
+                cmbBoardSeries.getItems().add(p.id() + " - " + p.displayName());
+            }
+            cmbBoardSeries.getSelectionModel().select(0);
+            applyProfileUi(BoardProfiles.get(cmbBoardSeries.getSelectionModel().getSelectedItem().split(" - ")[0]));
+            cmbBoardSeries.getSelectionModel().selectedItemProperty().addListener((obs, old, sel) -> {
+                if (sel == null) return;
+                String id = sel.split(" - ")[0];
+                org.example.core.BoardProfile profile = BoardProfiles.get(id);
+                if (profile == null) return;
+                manager.setProfile(profile);
+                applyProfileUi(profile);
+            });
         }
 
         setupGauge();
         setupListener();
         refreshPorts();
+    }
+
+    /** 按系列档案刷新界面：控制方式下拉选项 + 转速栏显隐 */
+    private void applyProfileUi(org.example.core.BoardProfile profile) {
+        if (profile == null) return;
+        if (cmbControlMode != null) {
+            cmbControlMode.getItems().setAll(profile.controlModeOptions());
+            if (profile.controlModeOptions().contains("Modbus")) {
+                cmbControlMode.getSelectionModel().select("Modbus");
+            } else if (!profile.controlModeOptions().isEmpty()) {
+                cmbControlMode.getSelectionModel().select(0);
+            }
+        }
+        if (speedBox != null) {
+            boolean hasSpeed = profile.hasSpeed();
+            speedBox.setVisible(hasSpeed);
+            speedBox.setManaged(hasSpeed);
+        }
     }
 
     // ==========================================
@@ -160,7 +204,12 @@ public class SerialUIController implements Initializable {
                 }
 
                 waitingForResponse = false;
-                Platform.runLater(() -> parseAndUpdate(rawHex));
+
+                byte[] data = hexToBytes(hex);
+                DeviceState state = manager.getProfile().parsePollResponse(data);
+                if (state != null) {
+                    Platform.runLater(() -> updateDisplay(state));
+                }
             }
 
             @Override
@@ -180,91 +229,25 @@ public class SerialUIController implements Initializable {
     }
 
     // ==========================================
-    //  解析响应（读 40002~40011，10 个寄存器）
+    //  显示轮询解析结果（解析逻辑在 BoardProfile 实现中）
     // ==========================================
-    private void parseAndUpdate(String rawHex) {
-        int idx = rawHex.indexOf("]:");
-        if (idx < 0) return;
-        String body = rawHex.substring(idx + 2).trim();
-        String hex = body.replaceAll("[^0-9A-Fa-f]", "");
-        if (hex.length() < 10) return;
+    private void updateDisplay(DeviceState state) {
+        openRatioGauge.setValue(state.openRatio);
+        openRatioGauge.setThreshold(state.setRatio);
 
-        byte[] data = hexToBytes(hex);
-        if (data.length < 3) return;
-
-        int funcCode = data[1] & 0xFF;
-        if (funcCode != 0x03) return;
-
-        int byteCount = data[2] & 0xFF;
-        if (data.length < 3 + byteCount) return;
-        if (byteCount < 20) return;   // 10 个寄存器 = 20 字节
-
-        // 40002：状态位
-        int statusReg    = ((data[3] & 0xFF) << 8) | (data[4] & 0xFF);
-
-        // 40006：当前开度（偏移 11）
-        int openRatio    = ((data[11] & 0xFF) << 8) | (data[12] & 0xFF);
-        // 40007：控制方式
-        int controlMode  = ((data[13] & 0xFF) << 8) | (data[14] & 0xFF);
-        // 40008：给定开度
-        int setRatio     = ((data[15] & 0xFF) << 8) | (data[16] & 0xFF);
-        // 40009：力矩
-        int torque       = ((data[17] & 0xFF) << 8) | (data[18] & 0xFF);
-        // 40010：力矩单位
-        int torqueUnit   = ((data[19] & 0xFF) << 8) | (data[20] & 0xFF);
-        // 40011：转速
-        int speed        = ((data[21] & 0xFF) << 8) | (data[22] & 0xFF);
-
-        openRatioGauge.setValue(openRatio / 10.0);
-        openRatioGauge.setThreshold(setRatio / 10.0);
-
-        // 用 40002 的位判断状态
-        boolean opening = ((statusReg >> 0) & 1) == 1;
-        boolean closing = ((statusReg >> 1) & 1) == 1;
-        boolean stopped = ((statusReg >> 2) & 1) == 1;
-
-        if (opening) {
-            currentValveState = 1;
-        } else if (closing) {
-            currentValveState = 2;
-        } else {
-            currentValveState = 0;
+        lblTorque.setText(state.torqueText);
+        if (state.speedText != null) {
+            lblSpeed.setText(state.speedText);
         }
+        lblControlMode.setText(state.controlModeText);
+        lblValveState.setText(state.valveStateText);
 
-        String unit = switch (torqueUnit) {
-            case 0 -> "N";
-            case 1 -> "Nm";
-            case 2 -> "kN";
-            default -> "";
-        };
-        lblTorque.setText(torque + " " + unit);
-        lblSpeed.setText(speed + " rpm");
-        lblControlMode.setText(controlModeName(controlMode));
-        lblValveState.setText(valveStateName(currentValveState));
-    }
-
-    private String controlModeName(int mode) {
-        return switch (mode) {
-            case 0 -> "就地";
-            case 1 -> "4-20mA";
-            case 2 -> "电平型";
-            case 3 -> "脉冲型";
-            case 4 -> "二线制常开";
-            case 5 -> "二线制常关";
-            case 6 -> "Modbus";
-            case 7 -> "Profibus";
-            case 8 -> "Hart";
-            case 9 -> "压差PID";
-            default -> "未知";
-        };
-    }
-
-    private String valveStateName(int state) {
-        return switch (state) {
-            case 0 -> "已停止";
-            case 1 -> "正在开";
-            case 2 -> "正在关";
-            default -> "--";
+        // 更新"阀门是否停止"标记（供打开配置/历史页前检查）
+        currentValveState = switch (state.valveState) {
+            case OPENING -> 1;
+            case CLOSING -> 2;
+            case STOPPED -> 0;
+            default -> currentValveState;
         };
     }
 
@@ -283,6 +266,7 @@ public class SerialUIController implements Initializable {
     // ==========================================
     private void startPolling() {
         stopPolling();
+        pollSendFailCount = 0;
         poller = new Timeline(new KeyFrame(Duration.millis(500), e -> {
             if (!manager.isPortOpen()) return;
             if (manager.isPollingPaused()) return;
@@ -292,21 +276,40 @@ public class SerialUIController implements Initializable {
                 Integer addr = manager.getDeviceAddress();
                 if (addr == null) addr = 1;
 
-                byte[] cmd = new byte[]{
-                        (byte) (addr & 0xFF),
-                        0x03,
-                        0x00, 0x01,      // 40002
-                        0x00, 0x0A       // 10 个寄存器
-                };
+                byte[] cmd = manager.getProfile().buildPollCommand(addr);
                 manager.setCrcEnabled(true);
                 manager.sendData(cmd, PAGE_TAG);
+                pollSendFailCount = 0;
 
                 waitingForResponse = true;
-                new Timeline(new KeyFrame(Duration.millis(1000), ev -> {
-                    waitingForResponse = false;
-                })).play();
+                if (responseTimeout != null) responseTimeout.stop();
+                responseTimeout = new PauseTransition(Duration.millis(1000));
+                responseTimeout.setOnFinished(ev -> waitingForResponse = false);
+                responseTimeout.play();
             } catch (Exception ex) {
-                ex.printStackTrace();
+                pollSendFailCount++;
+                System.err.println("[轮询发送失败 x" + pollSendFailCount + "] " + ex.getMessage());
+                if (pollSendFailCount >= 10) {
+                    // 连续写失败：设备/适配器可能长时间静默后失联（睡眠），
+                    // 先自动重连一次（关闭后按原参数重开），仍失败再提示用户。
+                    stopPolling();
+                    Platform.runLater(() -> {
+                        boolean recovered = manager.reopenPort();
+                        if (recovered) {
+                            System.out.println("[系统] 串口自动重连成功");
+                            startPolling();
+                        } else {
+                            showAlert(Alert.AlertType.ERROR, "串口写入失败",
+                                    "连续 10 次写入串口超时，自动重连失败。\n\n"
+                                            + "请检查：\n"
+                                            + "1. 设备是否上电\n"
+                                            + "2. 485 接线是否正确（A 接 A、B 接 B）\n"
+                                            + "3. 波特率是否与设备一致\n"
+                                            + "4. 串口是否被其他程序占用\n\n"
+                                            + "检查后请重新点击【连接串口】");
+                        }
+                    });
+                }
             }
         }));
         poller.setCycleCount(Animation.INDEFINITE);
@@ -317,6 +320,10 @@ public class SerialUIController implements Initializable {
         if (poller != null) {
             poller.stop();
             poller = null;
+        }
+        if (responseTimeout != null) {
+            responseTimeout.stop();
+            responseTimeout = null;
         }
     }
 
@@ -366,9 +373,8 @@ public class SerialUIController implements Initializable {
             btnClosePort.setDisable(false);
             portComboBox.setDisable(true);
             baudRateComboBox.setDisable(true);
+            if (cmbBoardSeries != null) cmbBoardSeries.setDisable(true);
             if (txtDeviceAddress != null) txtDeviceAddress.setDisable(true);
-
-            manager.addListener(PAGE_TAG, myListener);
 
             currentValveState = -1;
             waitingForResponse = false;
@@ -390,6 +396,7 @@ public class SerialUIController implements Initializable {
         btnClosePort.setDisable(true);
         portComboBox.setDisable(false);
         baudRateComboBox.setDisable(false);
+        if (cmbBoardSeries != null) cmbBoardSeries.setDisable(false);
         if (txtDeviceAddress != null) txtDeviceAddress.setDisable(false);
     }
 
@@ -423,7 +430,7 @@ public class SerialUIController implements Initializable {
         }
 
         int raw = percent * 10;
-        sendControlCommand(0x000B, raw, "给定开度 " + percent + "%");
+        sendControlCommand(ControlAction.SET_OPEN_RATIO, raw, "给定开度 " + percent + "%");
     }
 
     // ==========================================
@@ -438,20 +445,8 @@ public class SerialUIController implements Initializable {
             return;
         }
 
-        int value = switch (selected) {
-            case "4-20mA" -> 1;
-            case "电平型" -> 2;
-            case "脉冲型" -> 3;
-            case "二线制常开" -> 4;
-            case "二线制常关" -> 5;
-            case "Modbus" -> 6;
-            case "Profibus" -> 7;
-            case "Hart" -> 8;
-            case "压差PID" -> 9;
-            default -> 6;
-        };
-
-        sendControlCommand(0x000C, value, "控制方式: " + selected);
+        int value = manager.getProfile().controlModeValue(selected);
+        sendControlCommand(ControlAction.SET_CONTROL_MODE, value, "控制方式: " + selected);
     }
 
     // ==========================================
@@ -459,27 +454,32 @@ public class SerialUIController implements Initializable {
     // ==========================================
     @FXML
     private void openValve() {
-        sendControlCommand(0x0003, 0x0001, "开阀");
+        sendControlCommand(ControlAction.OPEN_VALVE, 0, "开阀");
     }
 
     @FXML
     private void closeValve() {
-        sendControlCommand(0x0003, 0x0002, "关阀");
+        sendControlCommand(ControlAction.CLOSE_VALVE, 0, "关阀");
     }
 
     @FXML
     private void stopValve() {
-        sendControlCommand(0x0003, 0x0004, "停止");
+        sendControlCommand(ControlAction.STOP_VALVE, 0, "停止");
     }
 
     @FXML
     private void resetAlarm() {
-        sendControlCommand(0x0004, 0x0001, "复归");
+        sendControlCommand(ControlAction.RESET_ALARM, 0, "复归");
     }
 
-    private void sendControlCommand(int regAddr, int value, String action) {
+    private void sendControlCommand(ControlAction action, int value, String actionText) {
         if (!manager.isPortOpen()) {
             showAlert(Alert.AlertType.WARNING, "提示", "请先打开串口！");
+            return;
+        }
+        if (subWindowCount > 0) {
+            showAlert(Alert.AlertType.WARNING, "提示",
+                    "配置/历史记录窗口打开中，请先关闭该窗口再操作阀门");
             return;
         }
 
@@ -489,19 +489,11 @@ public class SerialUIController implements Initializable {
         try {
             manager.pausePolling();
 
-            byte[] cmd = new byte[]{
-                    (byte) (addr & 0xFF),
-                    0x06,
-                    (byte) ((regAddr >> 8) & 0xFF),
-                    (byte) (regAddr & 0xFF),
-                    (byte) ((value >> 8) & 0xFF),
-                    (byte) (value & 0xFF)
-            };
-
+            byte[] cmd = manager.getProfile().buildControlCommand(addr, action, value);
             manager.setCrcEnabled(true);
             manager.sendData(cmd, PAGE_TAG);
 
-            System.out.println("[控制] " + action + " 指令已发送: 寄存器 " + regAddr + " = " + value);
+            System.out.println("[控制] " + actionText + " 指令已发送: " + action + " = " + value);
 
         } catch (Exception e) {
             manager.resumePolling();
@@ -528,11 +520,29 @@ public class SerialUIController implements Initializable {
     // ==========================================
     //  打开其他窗口
     // ==========================================
+    /**
+     * 禁用/恢复主界面的阀门控制控件。
+     * 配置/历史页打开期间禁止开阀等操作，避免控制命令与
+     * 0x64/0x66 大帧响应在 485 总线上冲突。
+     */
+    private void setValveControlsDisabled(boolean disabled) {
+        if (btnOpenValve != null) btnOpenValve.setDisable(disabled);
+        if (btnCloseValve != null) btnCloseValve.setDisable(disabled);
+        if (btnStopValve != null) btnStopValve.setDisable(disabled);
+        if (btnResetAlarm != null) btnResetAlarm.setDisable(disabled);
+        if (btnSetOpenRatio != null) btnSetOpenRatio.setDisable(disabled);
+        if (txtSetOpenRatio != null) txtSetOpenRatio.setDisable(disabled);
+        if (btnSetControlMode != null) btnSetControlMode.setDisable(disabled);
+        if (cmbControlMode != null) cmbControlMode.setDisable(disabled);
+    }
+
     @FXML
     private void showParameters() {
         if (!isValveStopped()) return;
 
         manager.pausePolling();
+        setValveControlsDisabled(true);
+        subWindowCount++;
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/example/parameters_view.fxml"));
             Parent root = loader.load();
@@ -546,11 +556,15 @@ public class SerialUIController implements Initializable {
             applyDefaultSize(stage);
             stage.setOnHidden(e -> {
                 controller.onDestroy();
+                subWindowCount--;
                 manager.resumePolling();
+                setValveControlsDisabled(false);
             });
             stage.show();
         } catch (IOException e) {
+            subWindowCount--;
             manager.resumePolling();
+            setValveControlsDisabled(false);
             e.printStackTrace();
         }
     }
@@ -560,6 +574,8 @@ public class SerialUIController implements Initializable {
         if (!isValveStopped()) return;
 
         manager.pausePolling();
+        setValveControlsDisabled(true);
+        subWindowCount++;
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/example/history_view.fxml"));
             Parent root = loader.load();
@@ -572,10 +588,16 @@ public class SerialUIController implements Initializable {
             applyStylesheet(scene);
             stage.setScene(scene);
             applyDefaultSize(stage);
-            stage.setOnHidden(e -> manager.resumePolling());
+            stage.setOnHidden(e -> {
+                subWindowCount--;
+                manager.resumePolling();
+                setValveControlsDisabled(false);
+            });
             stage.show();
         } catch (IOException e) {
+            subWindowCount--;
             manager.resumePolling();
+            setValveControlsDisabled(false);
             e.printStackTrace();
         }
     }
