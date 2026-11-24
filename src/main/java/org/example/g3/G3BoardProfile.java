@@ -33,7 +33,7 @@ public class G3BoardProfile implements BoardProfile {
 
     @Override
     public String displayName() {
-        return "G3 系列";
+        return "G3";
     }
 
     // ==========================================

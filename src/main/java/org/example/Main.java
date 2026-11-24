@@ -33,7 +33,7 @@ public class Main extends Application {
         );
 
         primaryStage.setScene(scene);
-        primaryStage.setTitle("Java 串口调试助手 v2.2.0");
+        primaryStage.setTitle("Java 串口调试助手 v2.2.1");
 
         // 窗口关闭事件
         primaryStage.setOnCloseRequest(event -> {

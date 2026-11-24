@@ -14,7 +14,7 @@ public class ConfigFieldDef {
     public enum FieldType {
         BYTE,               // 1 字节无符号整数
         BYTES2,             // 2 字节大端无符号整数
-        BYTES4,             // 4 字节大端无符号整数
+        BYTES4,             // 4 字节大端无符号整数.
         ENUM,               // 1 字节枚举（enumMap 提供 编码->显示名）
         SCALED_BYTE,        // 1 字节，显示 = 值 / scale（scale=10 即一位小数）
         SCALED_BYTES2,      // 2 字节大端，显示 = 值 / scale
@@ -36,11 +36,20 @@ public class ConfigFieldDef {
     public final Map<Integer, String> enumMap;  // ENUM/BIT 用（编码->显示名）
     public final boolean editable; // 是否允许修改
     public final int bitMask;      // BIT 类型的位掩码（如 0xC0、0x02、0x80）；非 BIT 为 0xFF
+    public final Double minValue;  // 显示值下限（null = 不限制）
+    public final Double maxValue;  // 显示值上限（null = 不限制）
 
     public ConfigFieldDef(String name, String category, int offset, int length,
                           FieldType type, double scale, String unit,
                           Map<Integer, String> enumMap, boolean editable,
                           int bitMask) {
+        this(name, category, offset, length, type, scale, unit, enumMap, editable, bitMask, null, null);
+    }
+
+    public ConfigFieldDef(String name, String category, int offset, int length,
+                          FieldType type, double scale, String unit,
+                          Map<Integer, String> enumMap, boolean editable,
+                          int bitMask, Double minValue, Double maxValue) {
         this.name = name;
         this.category = category;
         this.offset = offset;
@@ -51,5 +60,30 @@ public class ConfigFieldDef {
         this.enumMap = enumMap;
         this.editable = editable;
         this.bitMask = bitMask;
+        this.minValue = minValue;
+        this.maxValue = maxValue;
+    }
+
+    /** 显示数值是否在字段允许范围内 */
+    public boolean inRange(double displayValue) {
+        if (minValue != null && displayValue < minValue) return false;
+        if (maxValue != null && displayValue > maxValue) return false;
+        return true;
+    }
+
+    /** 范围提示文本（如 "0~100%"），无范围返回 null */
+    public String rangeHint() {
+        if (minValue == null && maxValue == null) return null;
+        String min = minValue == null ? "-∞" : trimNum(minValue);
+        String max = maxValue == null ? "+∞" : trimNum(maxValue);
+        return min + "~" + max + (unit == null ? "" : unit);
+    }
+
+    private static String trimNum(double v) {
+        if (v == Math.floor(v)) return String.valueOf((long) v);
+        String s = String.format("%.3f", v);
+        while (s.endsWith("0")) s = s.substring(0, s.length() - 1);
+        if (s.endsWith(".")) s = s.substring(0, s.length() - 1);
+        return s;
     }
 }

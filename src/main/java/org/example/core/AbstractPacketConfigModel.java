@@ -24,7 +24,7 @@ public abstract class AbstractPacketConfigModel implements ConfigModel {
     // ================= 帧结构参数（子类提供） =================
     protected abstract int frameLength();          // 完整帧字节数（含整包 CRC）
     protected abstract int basicBase();            // 基础设置数据区起始偏移（通常 5）
-    protected abstract int basicPayloadLen();      // 基础设置数据区长度（不含子包 CRC）
+    protected abstract int basicPayloadLen();      // 基础设置数据区长度（不 含子包 CRC）
     protected abstract int basicCrcOffset();       // 基础设置子包 CRC 位置（高字节在前）
     protected abstract int alarmBase();
     protected abstract int alarmPayloadLen();
@@ -69,11 +69,13 @@ public abstract class AbstractPacketConfigModel implements ConfigModel {
                 case BYTE: {
                     int v = parseInteger(stripUnit(input.trim(), field));
                     if (v < 0 || v > 255) return null;
+                    if (!field.inRange(v)) return null;
                     return new ConfigEdit(field, new byte[]{(byte) v}, withUnit(String.valueOf(v), field));
                 }
                 case BYTES2: {
                     int v = parseInteger(stripUnit(input.trim(), field));
                     if (v < 0 || v > 0xFFFF) return null;
+                    if (!field.inRange(v)) return null;
                     return new ConfigEdit(field, twoBytes(v), withUnit(String.valueOf(v), field));
                 }
                 case ENUM: {
@@ -92,6 +94,7 @@ public abstract class AbstractPacketConfigModel implements ConfigModel {
                 }
                 case SCALED_BYTE: {
                     double d = Double.parseDouble(stripUnit(input.trim(), field));
+                    if (!field.inRange(d)) return null;
                     int raw = (int) Math.round(d * field.scale);
                     if (raw < 0 || raw > 255) return null;
                     return new ConfigEdit(field, new byte[]{(byte) raw},
@@ -99,6 +102,7 @@ public abstract class AbstractPacketConfigModel implements ConfigModel {
                 }
                 case SCALED_BYTES2: {
                     double d = Double.parseDouble(stripUnit(input.trim(), field));
+                    if (!field.inRange(d)) return null;
                     int raw = (int) Math.round(d * field.scale);
                     if (raw < 0 || raw > 0xFFFF) return null;
                     return new ConfigEdit(field, twoBytes(raw),
@@ -114,6 +118,7 @@ public abstract class AbstractPacketConfigModel implements ConfigModel {
                     int intPart = Integer.parseInt(parts[0]);
                     int fracPart = Integer.parseInt(parts[1]);
                     if (intPart < 0 || fracPart < 0 || fracPart > 99) return null;
+                    if (!field.inRange(intPart + fracPart / 100.0)) return null;
                     int raw = intPart * 100 + fracPart;
                     if (raw < 0 || raw > 0xFFFF) return null;
                     String display = String.format("%02d.%02dA", intPart, fracPart);
@@ -121,6 +126,7 @@ public abstract class AbstractPacketConfigModel implements ConfigModel {
                 }
                 case SCALED_BYTE1: {
                     double d = Double.parseDouble(stripUnit(input.trim(), field));
+                    if (!field.inRange(d)) return null;
                     int raw = (int) Math.round(d * field.scale);
                     if (raw < 0 || raw > 255) return null;
                     return new ConfigEdit(field, new byte[]{(byte) raw},
@@ -128,6 +134,7 @@ public abstract class AbstractPacketConfigModel implements ConfigModel {
                 }
                 case SCALED_FIXED3: {
                     double d = Double.parseDouble(stripUnit(input.trim(), field));
+                    if (!field.inRange(d)) return null;
                     int raw = (int) Math.round(d * 1000);
                     if (raw < 0 || raw > 0xFFFF) return null;
                     return new ConfigEdit(field, twoBytes(raw),

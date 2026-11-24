@@ -196,8 +196,49 @@ public class S1ZConfigModelTest {
     }
 
     @Test
-    public void testApplyEditRecalculatesCrc() {
+    public void testFieldRangeLimits() {
         List<ConfigFieldValue> values = model.decode(SYNTHETIC_FRAME);
+        assertNotNull(values);
+
+        // 反馈区间设置 0~25.5%（单字节寄存器 ×0.1 的物理上限）
+        ConfigFieldDef feedback = find(values, "反馈区间设置").def;
+        assertNotNull(model.encodeField(feedback, "25.5"));
+        assertNull(model.encodeField(feedback, "25.6"));
+        assertNull(model.encodeField(feedback, "30"));
+
+        // 传感器保护时间 0~25S
+        ConfigFieldDef sensorTime = find(values, "传感器保护时间").def;
+        assertNotNull(model.encodeField(sensorTime, "25.0"));
+        assertNull(model.encodeField(sensorTime, "25.1"));
+
+        // 堵转时间 0~25S
+        ConfigFieldDef rotedTime = find(values, "堵转时间").def;
+        assertNotNull(model.encodeField(rotedTime, "25"));
+        assertNull(model.encodeField(rotedTime, "26"));
+
+        // 信号故障指定位置 0~100%
+        ConfigFieldDef sigPos = find(values, "信号故障指定位置").def;
+        assertNotNull(model.encodeField(sigPos, "100"));
+        assertNull(model.encodeField(sigPos, "100.1"));
+
+        // 4mA 校准 0~4096
+        ConfigFieldDef cal4 = find(values, "输入4mA校准").def;
+        assertNotNull(model.encodeField(cal4, "4096"));
+        assertNull(model.encodeField(cal4, "4097"));
+
+        // 开过力矩系数 0~200%
+        ConfigFieldDef torque = find(values, "开过力矩系数").def;
+        assertNotNull(model.encodeField(torque, "200"));
+        assertNull(model.encodeField(torque, "201"));
+
+        // 停车位置 0~25%
+        ConfigFieldDef stopPos = find(values, "停车位置").def;
+        assertNotNull(model.encodeField(stopPos, "25"));
+        assertNull(model.encodeField(stopPos, "25.1"));
+    }
+
+    @Test
+    public void testApplyEditRecalculatesCrc() {        List<ConfigFieldValue> values = model.decode(SYNTHETIC_FRAME);
         ConfigFieldValue deadZone = find(values, "死区范围设置");
 
         ConfigEdit edit = model.encodeField(deadZone.def, "1.5");   // 0.5 -> 1.5

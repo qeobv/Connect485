@@ -115,18 +115,19 @@ public class SerialUIController implements Initializable {
             cmbControlMode.getSelectionModel().select("Modbus");
         }
 
-        // 板卡系列下拉：填充已注册系列，切换系列时刷新控制方式选项与转速栏显隐
+        // 板卡系列下拉：填充已注册系列（显示名即下拉文本），切换系列时刷新控制方式选项与转速栏显隐
         if (cmbBoardSeries != null) {
-            for (org.example.core.BoardProfile p : BoardProfiles.all()) {
-                cmbBoardSeries.getItems().add(p.id() + " - " + p.displayName());
+            java.util.List<org.example.core.BoardProfile> profiles = BoardProfiles.all();
+            for (org.example.core.BoardProfile p : profiles) {
+                cmbBoardSeries.getItems().add(p.displayName());
             }
             cmbBoardSeries.getSelectionModel().select(0);
-            applyProfileUi(BoardProfiles.get(cmbBoardSeries.getSelectionModel().getSelectedItem().split(" - ")[0]));
-            cmbBoardSeries.getSelectionModel().selectedItemProperty().addListener((obs, old, sel) -> {
-                if (sel == null) return;
-                String id = sel.split(" - ")[0];
-                org.example.core.BoardProfile profile = BoardProfiles.get(id);
-                if (profile == null) return;
+            if (!profiles.isEmpty()) {
+                applyProfileUi(profiles.get(0));
+            }
+            cmbBoardSeries.getSelectionModel().selectedIndexProperty().addListener((obs, old, idx) -> {
+                if (idx == null || idx.intValue() < 0 || idx.intValue() >= profiles.size()) return;
+                org.example.core.BoardProfile profile = profiles.get(idx.intValue());
                 manager.setProfile(profile);
                 applyProfileUi(profile);
             });

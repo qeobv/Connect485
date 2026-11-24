@@ -60,7 +60,7 @@ public class S1ZBoardProfile implements BoardProfile {
 
     @Override
     public String displayName() {
-        return "S1-Z 系列（多回转）";
+        return "S1-Z/Q";
     }
 
     /** MTA 无转速寄存器：主界面隐藏"电机转速"栏 */

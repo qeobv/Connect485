@@ -94,6 +94,15 @@ public class S1ZConfigModel extends AbstractPacketConfigModel {
                 0, null, enums, editable, bitMask));
     }
 
+    /** 带显示值范围限制的字段（min/max 为显示值，如 0~100 表示 0%~100%） */
+    private static void regRange(String name, String cat, int offset, int len,
+                                 ConfigFieldDef.FieldType type, double scale, String unit,
+                                 Map<Integer, String> enums, boolean editable,
+                                 double min, double max) {
+        FIELDS.add(new ConfigFieldDef(name, cat, offset, len, type, scale, unit, enums,
+                editable, 0xFF, min, max));
+    }
+
     static {
         String basic = "基础设置";
         // --- 基础设置（basicData，帧内偏移 5+i，共 42 字节） ---
@@ -102,19 +111,19 @@ public class S1ZConfigModel extends AbstractPacketConfigModel {
         reg("开阀位置", basic, BASIC_BASE + 1, 4, ConfigFieldDef.FieldType.POS4096, 0, null, null, true);
         reg("关阀位置", basic, BASIC_BASE + 5, 4, ConfigFieldDef.FieldType.POS4096, 0, null, null, true);
         reg("信号故障类型", basic, BASIC_BASE + 21, 1, ConfigFieldDef.FieldType.ENUM, 0, null, ACTION_TYPE, true);
-        reg("信号故障指定位置", basic, BASIC_BASE + 22, 2, ConfigFieldDef.FieldType.SCALED_BYTES2, 10, "%", null, true);
+        regRange("信号故障指定位置", basic, BASIC_BASE + 22, 2, ConfigFieldDef.FieldType.SCALED_BYTES2, 10, "%", null, true, 0, 100);
         reg("ESD动作类型", basic, BASIC_BASE + 24, 1, ConfigFieldDef.FieldType.ENUM, 0, null, ACTION_TYPE, true);
-        reg("ESD指定位置", basic, BASIC_BASE + 25, 2, ConfigFieldDef.FieldType.SCALED_BYTES2, 10, "%", null, true);
+        regRange("ESD指定位置", basic, BASIC_BASE + 25, 2, ConfigFieldDef.FieldType.SCALED_BYTES2, 10, "%", null, true, 0, 100);
         reg("死区范围设置", basic, BASIC_BASE + 19, 1, ConfigFieldDef.FieldType.SCALED_BYTE, 10, "%", null, true);
         reg("远程信号类型", basic, BASIC_BASE + 20, 1, ConfigFieldDef.FieldType.ENUM, 0, null, SIGN_TYPE, true);
         reg("停止常开常闭", basic, BASIC_BASE + 38, 1, ConfigFieldDef.FieldType.ENUM, 0, null, NO_NC, true);
         reg("ESD常开常闭", basic, BASIC_BASE + 39, 1, ConfigFieldDef.FieldType.ENUM, 0, null, NO_NC, true);
 
-        reg("输入4mA校准", basic, BASIC_BASE + 9, 2, ConfigFieldDef.FieldType.BYTES2, 0, null, null, true);
-        reg("输入20mA校准", basic, BASIC_BASE + 11, 2, ConfigFieldDef.FieldType.BYTES2, 0, null, null, true);
+        regRange("输入4mA校准", basic, BASIC_BASE + 9, 2, ConfigFieldDef.FieldType.BYTES2, 0, null, null, true, 0, 4096);
+        regRange("输入20mA校准", basic, BASIC_BASE + 11, 2, ConfigFieldDef.FieldType.BYTES2, 0, null, null, true, 0, 4096);
         reg("输入正反作用", basic, BASIC_BASE + 17, 1, ConfigFieldDef.FieldType.ENUM, 0, null, PN_LOGIC1, true);
-        reg("输出4mA校准", basic, BASIC_BASE + 13, 2, ConfigFieldDef.FieldType.BYTES2, 0, null, null, true);
-        reg("输出20mA校准", basic, BASIC_BASE + 15, 2, ConfigFieldDef.FieldType.BYTES2, 0, null, null, true);
+        regRange("输出4mA校准", basic, BASIC_BASE + 13, 2, ConfigFieldDef.FieldType.BYTES2, 0, null, null, true, 0, 4096);
+        regRange("输出20mA校准", basic, BASIC_BASE + 15, 2, ConfigFieldDef.FieldType.BYTES2, 0, null, null, true, 0, 4096);
         reg("输出正反作用", basic, BASIC_BASE + 18, 1, ConfigFieldDef.FieldType.ENUM, 0, null, PN_LOGIC2, true);
         reg("设备地址", basic, BASIC_BASE + 29, 2, ConfigFieldDef.FieldType.BYTES2, 0, null, null, false);
 
@@ -127,25 +136,25 @@ public class S1ZConfigModel extends AbstractPacketConfigModel {
             reg(String.format("报警%02d设置", i + 1), alarm, ALARM_BASE + i, 1,
                     ConfigFieldDef.FieldType.ENUM, 0, null, ALARM_PORT, true);
         }
-        reg("报警指定位置", alarm, ALARM_BASE + 12, 2, ConfigFieldDef.FieldType.SCALED_BYTES2, 10, "%", null, true);
-        reg("反馈区间设置", alarm, ALARM_BASE + 14, 1, ConfigFieldDef.FieldType.SCALED_BYTE, 10, "%", null, true);
+        regRange("报警指定位置", alarm, ALARM_BASE + 12, 2, ConfigFieldDef.FieldType.SCALED_BYTES2, 10, "%", null, true, 0, 100);
+        regRange("反馈区间设置", alarm, ALARM_BASE + 14, 1, ConfigFieldDef.FieldType.SCALED_BYTE, 10, "%", null, true, 0, 25.5);
 
         String sup = "高级设置";
         // --- 高级设置（superData，帧内偏移 70+i，共 63 字节） ---
         regBit("过力矩保护", sup, SUPER_BASE + 24, 0x0C, ON_OFF, true);   // bit10~11 关/开过力矩
-        reg("开过力矩系数", sup, SUPER_BASE + 4, 2, ConfigFieldDef.FieldType.BYTES2, 0, "%", null, true);
-        reg("关过力矩系数", sup, SUPER_BASE + 6, 2, ConfigFieldDef.FieldType.BYTES2, 0, "%", null, true);
+        regRange("开过力矩系数", sup, SUPER_BASE + 4, 2, ConfigFieldDef.FieldType.BYTES2, 0, "%", null, true, 0, 200);
+        regRange("关过力矩系数", sup, SUPER_BASE + 6, 2, ConfigFieldDef.FieldType.BYTES2, 0, "%", null, true, 0, 200);
         reg("过力矩延迟时间", sup, SUPER_BASE + 8, 2, ConfigFieldDef.FieldType.BYTES2, 0, "ms", null, true);
         regBit("传感器保护", sup, SUPER_BASE + 24, 0x30, ON_OFF, true);   // bit12~13 关/开未随动（电位计随动异常）
-        reg("传感器保护时间", sup, SUPER_BASE + 22, 1, ConfigFieldDef.FieldType.SCALED_BYTE1, 10, "S", null, true);   // MENU_SUP_DWJPROTTIME
+        regRange("传感器保护时间", sup, SUPER_BASE + 22, 1, ConfigFieldDef.FieldType.SCALED_BYTE1, 10, "S", null, true, 0, 25);   // MENU_SUP_DWJPROTTIME
         regBit("堵转保护", sup, SUPER_BASE + 24, 0x03, ON_OFF, true);     // bit8~9 关/开阀堵转
-        reg("堵转时间", sup, SUPER_BASE + 36, 1, ConfigFieldDef.FieldType.BYTE, 0, "S", null, true);                    // MENU_SUP_ROTEDTIME
+        regRange("堵转时间", sup, SUPER_BASE + 36, 1, ConfigFieldDef.FieldType.BYTE, 0, "S", null, true, 0, 25);                    // MENU_SUP_ROTEDTIME
         regBit("拒动保护", sup, SUPER_BASE + 25, 0xC0, ON_OFF, true);     // bit6~7 关/开阀拒动
         regBit("过温保护", sup, SUPER_BASE + 25, 0x10, ON_OFF, true);     // bit4 过温
         reg("位置传动比", sup, SUPER_BASE + 12, 2, ConfigFieldDef.FieldType.BYTES2, 0, null, null, true);
         reg("机械传动比", sup, SUPER_BASE + 10, 2, ConfigFieldDef.FieldType.BYTES2, 0, null, null, true);
         reg("电机关阀方向", sup, SUPER_BASE + 32, 1, ConfigFieldDef.FieldType.ENUM, 0, null, MACH_LOGIC, true);
-        reg("停车位置", sup, SUPER_BASE + 23, 1, ConfigFieldDef.FieldType.SCALED_BYTE, 10, "%", null, true);
+        regRange("停车位置", sup, SUPER_BASE + 23, 1, ConfigFieldDef.FieldType.SCALED_BYTE, 10, "%", null, true, 0, 25);
         reg("刹车制动延时", sup, SUPER_BASE + 26, 1, ConfigFieldDef.FieldType.BYTE, 0, "ms", null, true);
         reg("刹车制动时间", sup, SUPER_BASE + 27, 1, ConfigFieldDef.FieldType.BYTE, 0, "ms", null, true);
         reg("电源类型", sup, SUPER_BASE + 3, 1, ConfigFieldDef.FieldType.ENUM, 0, null, PWR_TYPE, true);

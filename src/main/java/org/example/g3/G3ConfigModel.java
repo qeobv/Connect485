@@ -94,25 +94,34 @@ public class G3ConfigModel extends AbstractPacketConfigModel {
                 0, null, enums, editable, bitMask));
     }
 
+    /** 带显示值范围限制的字段（min/max 为显示值，如 0~100 表示 0%~100%） */
+    private static void regRange(String name, String cat, int offset, int len,
+                                 ConfigFieldDef.FieldType type, double scale, String unit,
+                                 Map<Integer, String> enums, boolean editable,
+                                 double min, double max) {
+        FIELDS.add(new ConfigFieldDef(name, cat, offset, len, type, scale, unit, enums,
+                editable, 0xFF, min, max));
+    }
+
     static {
         String basic = "基础设置";
         // --- 基础设置（basicData，帧内偏移 5+i） ---
         reg("中英文选择", basic, BASIC_BASE + 0, 1, ConfigFieldDef.FieldType.ENUM, 0, null, LANG, true);
         reg("开阀位置", basic, BASIC_BASE + 1, 4, ConfigFieldDef.FieldType.POS4096, 0, null, null, true);
         reg("关阀位置", basic, BASIC_BASE + 5, 4, ConfigFieldDef.FieldType.POS4096, 0, null, null, true);
-        reg("输入4mA校准", basic, BASIC_BASE + 9, 2, ConfigFieldDef.FieldType.BYTES2, 0, null, null, true);
-        reg("输入20mA校准", basic, BASIC_BASE + 11, 2, ConfigFieldDef.FieldType.BYTES2, 0, null, null, true);
-        reg("输出4mA校准", basic, BASIC_BASE + 13, 2, ConfigFieldDef.FieldType.BYTES2, 0, null, null, true);
-        reg("输出20mA校准", basic, BASIC_BASE + 15, 2, ConfigFieldDef.FieldType.BYTES2, 0, null, null, true);
+        regRange("输入4mA校准", basic, BASIC_BASE + 9, 2, ConfigFieldDef.FieldType.BYTES2, 0, null, null, true, 0, 4096);
+        regRange("输入20mA校准", basic, BASIC_BASE + 11, 2, ConfigFieldDef.FieldType.BYTES2, 0, null, null, true, 0, 4096);
+        regRange("输出4mA校准", basic, BASIC_BASE + 13, 2, ConfigFieldDef.FieldType.BYTES2, 0, null, null, true, 0, 4096);
+        regRange("输出20mA校准", basic, BASIC_BASE + 15, 2, ConfigFieldDef.FieldType.BYTES2, 0, null, null, true, 0, 4096);
         reg("死区范围设置", basic, BASIC_BASE + 17, 1, ConfigFieldDef.FieldType.SCALED_BYTE, 10, "S", null, true);
         reg("信号类型", basic, BASIC_BASE + 18, 1, ConfigFieldDef.FieldType.ENUM, 0, null, SIGN_TYPE, true);
         reg("信号故障类型", basic, BASIC_BASE + 19, 1, ConfigFieldDef.FieldType.ENUM, 0, null, ACTION_TYPE, true);
-        reg("信号故障指定位置", basic, BASIC_BASE + 20, 2, ConfigFieldDef.FieldType.SCALED_BYTES2, 10, "%", null, true);
+        regRange("信号故障指定位置", basic, BASIC_BASE + 20, 2, ConfigFieldDef.FieldType.SCALED_BYTES2, 10, "%", null, true, 0, 100);
         reg("断电动作类型", basic, BASIC_BASE + 22, 1, ConfigFieldDef.FieldType.ENUM, 0, null, ACTION_TYPE, true);
-        reg("断电指定位置", basic, BASIC_BASE + 23, 2, ConfigFieldDef.FieldType.SCALED_BYTES2, 10, "%", null, true);
+        regRange("断电指定位置", basic, BASIC_BASE + 23, 2, ConfigFieldDef.FieldType.SCALED_BYTES2, 10, "%", null, true, 0, 100);
         reg("断电延时时间", basic, BASIC_BASE + 25, 2, ConfigFieldDef.FieldType.BYTES2, 0, "ms", null, true);
         reg("ESD动作类型", basic, BASIC_BASE + 27, 1, ConfigFieldDef.FieldType.ENUM, 0, null, ACTION_TYPE, true);
-        reg("ESD指定位置", basic, BASIC_BASE + 28, 2, ConfigFieldDef.FieldType.SCALED_BYTES2, 10, "%", null, true);
+        regRange("ESD指定位置", basic, BASIC_BASE + 28, 2, ConfigFieldDef.FieldType.SCALED_BYTES2, 10, "%", null, true, 0, 100);
         reg("启动选项", basic, BASIC_BASE + 30, 1, ConfigFieldDef.FieldType.ENUM, 0, null, STARTUP, true);
         reg("电机关阀方向", basic, BASIC_BASE + 31, 1, ConfigFieldDef.FieldType.ENUM, 0, null, MOTOR_DIR, true);
         reg("设备地址", basic, BASIC_BASE + 32, 2, ConfigFieldDef.FieldType.BYTES2, 0, null, null, false);
@@ -137,22 +146,22 @@ public class G3ConfigModel extends AbstractPacketConfigModel {
         reg("继电器输出4", alarm, ALARM_BASE + 3, 1, ConfigFieldDef.FieldType.ENUM, 0, null, ALARM_PORT, true);
         reg("继电器输出5", alarm, ALARM_BASE + 4, 1, ConfigFieldDef.FieldType.ENUM, 0, null, ALARM_PORT, true);
         reg("继电器输出6", alarm, ALARM_BASE + 5, 1, ConfigFieldDef.FieldType.ENUM, 0, null, ALARM_PORT, true);
-        reg("报警指定位置", alarm, ALARM_BASE + 6, 2, ConfigFieldDef.FieldType.SCALED_BYTES2, 10, "%", null, true);
-        reg("反馈区间设置", alarm, ALARM_BASE + 8, 1, ConfigFieldDef.FieldType.SCALED_BYTE, 10, "%", null, true);
+        regRange("报警指定位置", alarm, ALARM_BASE + 6, 2, ConfigFieldDef.FieldType.SCALED_BYTES2, 10, "%", null, true, 0, 100);
+        regRange("反馈区间设置", alarm, ALARM_BASE + 8, 1, ConfigFieldDef.FieldType.SCALED_BYTE, 10, "%", null, true, 0, 25.5);
 
         String sup = "高级设置";
         // --- 高级设置（superData，帧内偏移 76+i） ---
         reg("密码设置", sup, SUPER_BASE + 0, 2, ConfigFieldDef.FieldType.BYTES2, 0, null, null, false);
         reg("力矩单位", sup, SUPER_BASE + 2, 1, ConfigFieldDef.FieldType.ENUM, 0, null, TORQUE_UNIT, true);
         reg("过力矩延时", sup, SUPER_BASE + 7, 2, ConfigFieldDef.FieldType.BYTES2, 0, "ms", null, true);
-        reg("关过力矩值", sup, SUPER_BASE + 9, 2, ConfigFieldDef.FieldType.BYTES2, 0, "%", null, true);
-        reg("开过力矩值", sup, SUPER_BASE + 11, 2, ConfigFieldDef.FieldType.BYTES2, 0, "%", null, true);
+        regRange("关过力矩值", sup, SUPER_BASE + 9, 2, ConfigFieldDef.FieldType.BYTES2, 0, "%", null, true, 0, 200);
+        regRange("开过力矩值", sup, SUPER_BASE + 11, 2, ConfigFieldDef.FieldType.BYTES2, 0, "%", null, true, 0, 200);
         reg("位置传动比", sup, SUPER_BASE + 13, 2, ConfigFieldDef.FieldType.BYTES2, 0, null, null, true);
         reg("机械传动比", sup, SUPER_BASE + 15, 2, ConfigFieldDef.FieldType.BYTES2, 0, null, null, true);
         reg("产品编号", sup, SUPER_BASE + 17, 4, ConfigFieldDef.FieldType.BYTES4, 0, null, null, false);
         // 力矩校准开关：数据显示在高级设置（与原翻译一致），数据字节在基础设置 w34
         reg("力矩校准开关", sup, BASIC_BASE + 34, 1, ConfigFieldDef.FieldType.ENUM, 0, null, ON_OFF, true);
-        reg("传感器保护精度", sup, SUPER_BASE + 21, 1, ConfigFieldDef.FieldType.SCALED_BYTE, 10, "度", null, true);
+        regRange("传感器保护精度", sup, SUPER_BASE + 21, 1, ConfigFieldDef.FieldType.SCALED_BYTE, 10, "度", null, true, 0, 25);
         reg("空载校准值", sup, SUPER_BASE + 22, 2, ConfigFieldDef.FieldType.BYTES2, 0, null, null, true);
         reg("空载开电流值", sup, SUPER_BASE + 24, 2, ConfigFieldDef.FieldType.BYTES2, 0, null, null, true);
         reg("空载关电流值", sup, SUPER_BASE + 26, 2, ConfigFieldDef.FieldType.BYTES2, 0, null, null, true);

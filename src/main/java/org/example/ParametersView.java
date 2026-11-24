@@ -211,9 +211,26 @@ public class ParametersView {
         if (values == null) return;
         data.clear();
         for (ConfigFieldValue v : values) {
-            data.add(new ConfigParam(v.def.category, v.def.name, v.displayText, v.def));
+            String text = v.displayText;
+            // 设备中已有的值若超出允许范围，明确标记（避免误以为是本次修改生效）
+            if (v.def.minValue != null || v.def.maxValue != null) {
+                if (!v.def.inRange(numericValue(v.def, v.rawValue))) {
+                    text = text + "   ⚠ 超出允许范围 " + v.def.rangeHint();
+                }
+            }
+            data.add(new ConfigParam(v.def.category, v.def.name, text, v.def));
         }
         configTable.scrollTo(0);
+    }
+
+    /** 原始值 → 业务显示数值（用于范围判断） */
+    private static double numericValue(ConfigFieldDef f, long raw) {
+        return switch (f.type) {
+            case SCALED_BYTE, SCALED_BYTES2, SCALED_BYTE1 -> raw / f.scale;
+            case CURRENT_A -> raw / 100.0;
+            case SCALED_FIXED3 -> raw / 1000.0;
+            default -> raw;
+        };
     }
 
     private byte[] hexToBytes(String hex) {
@@ -251,7 +268,11 @@ public class ParametersView {
         } else {
             TextInputDialog dialog = new TextInputDialog(param.getValue());
             dialog.setTitle("修改参数");
-            dialog.setHeaderText(field.name + (field.unit != null ? "（单位: " + field.unit + "）" : ""));
+            String header = field.name + (field.unit != null ? "（单位: " + field.unit + "）" : "");
+            if (field.rangeHint() != null) {
+                header += "  允许范围: " + field.rangeHint();
+            }
+            dialog.setHeaderText(header);
             dialog.setContentText(buildPrompt(field));
             dialog.showAndWait().ifPresent(input -> applyFieldEdit(param, field, model, input));
         }
@@ -260,7 +281,8 @@ public class ParametersView {
     private void applyFieldEdit(ConfigParam param, ConfigFieldDef field, ConfigModel model, String input) {
         ConfigEdit edit = model.encodeField(field, input);
         if (edit == null) {
-            showInfo("输入无效: " + input);
+            String hint = field.rangeHint();
+            showInfo("输入无效: " + input + (hint != null ? "（允许范围 " + hint + "）" : ""));
             return;
         }
         param.setValue(edit.displayText);
@@ -273,8 +295,8 @@ public class ParametersView {
 
     private String buildPrompt(ConfigFieldDef field) {
         return switch (field.type) {
-            case BYTE -> "输入 0~255 的整数:";
-            case BYTES2 -> "输入 0~65535 的整数:";
+            case BYTE -> "输入整数:";
+            case BYTES2 -> "输入整数:";
             case SCALED_BYTE -> "输入小数（如 0.5），最多一位小数:";
             case SCALED_BYTES2 -> "输入小数（如 50.5），最多一位小数:";
             case TIME_HM -> "输入格式 HH:MM（如 08:30）:";

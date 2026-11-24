@@ -123,6 +123,48 @@ public class G3ConfigModelTest {
     }
 
     @Test
+    public void testFieldRangeLimits() {
+        List<ConfigFieldValue> values = model.decode(SYNTHETIC_FRAME);
+        assertNotNull(values);
+
+        // 4mA/20mA 校准 0~4096
+        ConfigFieldValue cal4 = findByValue(values, "输入4mA校准");
+        assertNotNull(model.encodeField(cal4.def, "4096"));
+        assertNull(model.encodeField(cal4.def, "4097"));
+        assertNull(model.encodeField(cal4.def, "4900"));
+
+        // 信号故障指定位置 0~100%
+        ConfigFieldValue sigPos = findByValue(values, "信号故障指定位置");
+        assertNotNull(model.encodeField(sigPos.def, "100"));
+        assertNull(model.encodeField(sigPos.def, "100.1"));
+
+        // ESD指定位置 0~100%
+        ConfigFieldValue esdPos = findByValue(values, "ESD指定位置");
+        assertNotNull(model.encodeField(esdPos.def, "100"));
+        assertNull(model.encodeField(esdPos.def, "120"));
+
+        // 报警指定位置 0~100%
+        ConfigFieldValue alarmPos = findByValue(values, "报警指定位置");
+        assertNotNull(model.encodeField(alarmPos.def, "100"));
+        assertNull(model.encodeField(alarmPos.def, "101"));
+
+        // 反馈区间设置 0~25.5%（单字节 ×0.1 物理上限）
+        ConfigFieldValue feedback = findByValue(values, "反馈区间设置");
+        assertNotNull(model.encodeField(feedback.def, "25.5"));
+        assertNull(model.encodeField(feedback.def, "25.6"));
+
+        // 开/关过力矩值 0~200%
+        ConfigFieldValue openTorque = findByValue(values, "开过力矩值");
+        assertNotNull(model.encodeField(openTorque.def, "200"));
+        assertNull(model.encodeField(openTorque.def, "201"));
+
+        // 传感器保护精度 0~25
+        ConfigFieldValue sensor = findByValue(values, "传感器保护精度");
+        assertNotNull(model.encodeField(sensor.def, "25"));
+        assertNull(model.encodeField(sensor.def, "25.1"));
+    }
+
+    @Test
     public void testDecodeSyntheticFrame() {
         List<ConfigFieldValue> values = model.decode(SYNTHETIC_FRAME);
         assertNotNull(values);
