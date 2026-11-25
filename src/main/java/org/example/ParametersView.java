@@ -297,6 +297,7 @@ public class ParametersView {
         return switch (field.type) {
             case BYTE -> "输入整数:";
             case BYTES2 -> "输入整数:";
+            case BYTES4 -> "输入整数:";
             case SCALED_BYTE -> "输入小数（如 0.5），最多一位小数:";
             case SCALED_BYTES2 -> "输入小数（如 50.5），最多一位小数:";
             case TIME_HM -> "输入格式 HH:MM（如 08:30）:";

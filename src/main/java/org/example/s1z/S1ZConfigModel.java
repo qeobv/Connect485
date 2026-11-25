@@ -168,7 +168,7 @@ public class S1ZConfigModel extends AbstractPacketConfigModel {
        // reg("力矩校准高点值", sup, SUPER_BASE + 45, 2, ConfigFieldDef.FieldType.BYTES2, 0, null, null, true);
         reg("负载开电流值", sup, SUPER_BASE + 47, 2, ConfigFieldDef.FieldType.BYTES2, 0, null, null, true);
         reg("负载关电流值", sup, SUPER_BASE + 49, 2, ConfigFieldDef.FieldType.BYTES2, 0, null, null, true);
-        reg("产品编号", sup, SUPER_BASE + 28, 4, ConfigFieldDef.FieldType.BYTES4, 0, null, null, false);
+        reg("产品编号", sup, SUPER_BASE + 28, 4, ConfigFieldDef.FieldType.BYTES4, 0, null, null, true);
         reg("密码设置", sup, SUPER_BASE + 0, 2, ConfigFieldDef.FieldType.BYTES2, 0, null, null, false);
         reg("公司信息", sup, SUPER_BASE + 37, 1, ConfigFieldDef.FieldType.ENUM, 0, null, ON_OFF, true);
 

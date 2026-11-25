@@ -78,6 +78,12 @@ public abstract class AbstractPacketConfigModel implements ConfigModel {
                     if (!field.inRange(v)) return null;
                     return new ConfigEdit(field, twoBytes(v), withUnit(String.valueOf(v), field));
                 }
+                case BYTES4: {
+                    long v = Long.parseLong(stripUnit(input.trim(), field));
+                    if (v < 0 || v > 0xFFFFFFFFL) return null;
+                    if (!field.inRange(v)) return null;
+                    return new ConfigEdit(field, fourBytes(v), withUnit(String.valueOf(v), field));
+                }
                 case ENUM: {
                     String sel = input.trim();
                     for (Map.Entry<Integer, String> e : field.enumMap.entrySet()) {

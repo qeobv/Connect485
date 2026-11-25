@@ -162,6 +162,15 @@ public class G3ConfigModelTest {
         ConfigFieldValue sensor = findByValue(values, "传感器保护精度");
         assertNotNull(model.encodeField(sensor.def, "25"));
         assertNull(model.encodeField(sensor.def, "25.1"));
+
+        // 产品编号（4 字节，允许编辑）
+        ConfigFieldValue product = findByValue(values, "产品编号");
+        assertTrue(product.def.editable);
+        ConfigEdit pe = model.encodeField(product.def, "10001234");
+        assertNotNull(pe);
+        assertEquals(4, pe.rawBytes.length);
+        assertNull(model.encodeField(product.def, "-1"));
+        assertNull(model.encodeField(product.def, "4294967296"));
     }
 
     @Test
@@ -294,9 +303,9 @@ public class G3ConfigModelTest {
         assertNull(model.encodeField(sensor.def, "xyz"));
         assertNull(model.encodeField(sensor.def, "2"));
 
-        // 只读字段不可编辑
-        ConfigFieldValue product = findByValue(model.decode(SYNTHETIC_FRAME), "产品编号");
-        assertNull(model.encodeField(product.def, "12345"));
+        // 只读字段：设备地址固定（否则通讯断开），界面层禁止编辑
+        ConfigFieldValue deviceAddr = findByValue(model.decode(SYNTHETIC_FRAME), "设备地址");
+        assertFalse(deviceAddr.def.editable);
     }
 
     @Test

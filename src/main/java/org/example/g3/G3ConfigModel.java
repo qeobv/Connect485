@@ -158,7 +158,7 @@ public class G3ConfigModel extends AbstractPacketConfigModel {
         regRange("开过力矩值", sup, SUPER_BASE + 11, 2, ConfigFieldDef.FieldType.BYTES2, 0, "%", null, true, 0, 200);
         reg("位置传动比", sup, SUPER_BASE + 13, 2, ConfigFieldDef.FieldType.BYTES2, 0, null, null, true);
         reg("机械传动比", sup, SUPER_BASE + 15, 2, ConfigFieldDef.FieldType.BYTES2, 0, null, null, true);
-        reg("产品编号", sup, SUPER_BASE + 17, 4, ConfigFieldDef.FieldType.BYTES4, 0, null, null, false);
+        reg("产品编号", sup, SUPER_BASE + 17, 4, ConfigFieldDef.FieldType.BYTES4, 0, null, null, true);
         // 力矩校准开关：数据显示在高级设置（与原翻译一致），数据字节在基础设置 w34
         reg("力矩校准开关", sup, BASIC_BASE + 34, 1, ConfigFieldDef.FieldType.ENUM, 0, null, ON_OFF, true);
         regRange("传感器保护精度", sup, SUPER_BASE + 21, 1, ConfigFieldDef.FieldType.SCALED_BYTE, 10, "度", null, true, 0, 25);
