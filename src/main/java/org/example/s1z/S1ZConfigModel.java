@@ -114,7 +114,7 @@ public class S1ZConfigModel extends AbstractPacketConfigModel {
         regRange("信号故障指定位置", basic, BASIC_BASE + 22, 2, ConfigFieldDef.FieldType.SCALED_BYTES2, 10, "%", null, true, 0, 100);
         reg("ESD动作类型", basic, BASIC_BASE + 24, 1, ConfigFieldDef.FieldType.ENUM, 0, null, ACTION_TYPE, true);
         regRange("ESD指定位置", basic, BASIC_BASE + 25, 2, ConfigFieldDef.FieldType.SCALED_BYTES2, 10, "%", null, true, 0, 100);
-        reg("死区范围设置", basic, BASIC_BASE + 19, 1, ConfigFieldDef.FieldType.SCALED_BYTE, 10, "%", null, true);
+        regRange("死区范围设置", basic, BASIC_BASE + 19, 1, ConfigFieldDef.FieldType.SCALED_BYTE, 10, "%", null, true, 0, 25.5);
         reg("远程信号类型", basic, BASIC_BASE + 20, 1, ConfigFieldDef.FieldType.ENUM, 0, null, SIGN_TYPE, true);
         reg("停止常开常闭", basic, BASIC_BASE + 38, 1, ConfigFieldDef.FieldType.ENUM, 0, null, NO_NC, true);
         reg("ESD常开常闭", basic, BASIC_BASE + 39, 1, ConfigFieldDef.FieldType.ENUM, 0, null, NO_NC, true);

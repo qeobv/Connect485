@@ -153,6 +153,11 @@ public class G3ConfigModelTest {
         assertNotNull(model.encodeField(feedback.def, "25.5"));
         assertNull(model.encodeField(feedback.def, "25.6"));
 
+        // 死区范围设置 0~25.5（单字节 ×0.1 物理上限）
+        ConfigFieldValue deadZone = findByValue(values, "死区范围设置");
+        assertNotNull(model.encodeField(deadZone.def, "25.5"));
+        assertNull(model.encodeField(deadZone.def, "25.6"));
+
         // 开/关过力矩值 0~200%
         ConfigFieldValue openTorque = findByValue(values, "开过力矩值");
         assertNotNull(model.encodeField(openTorque.def, "200"));

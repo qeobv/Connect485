@@ -113,7 +113,7 @@ public class G3ConfigModel extends AbstractPacketConfigModel {
         regRange("输入20mA校准", basic, BASIC_BASE + 11, 2, ConfigFieldDef.FieldType.BYTES2, 0, null, null, true, 0, 4096);
         regRange("输出4mA校准", basic, BASIC_BASE + 13, 2, ConfigFieldDef.FieldType.BYTES2, 0, null, null, true, 0, 4096);
         regRange("输出20mA校准", basic, BASIC_BASE + 15, 2, ConfigFieldDef.FieldType.BYTES2, 0, null, null, true, 0, 4096);
-        reg("死区范围设置", basic, BASIC_BASE + 17, 1, ConfigFieldDef.FieldType.SCALED_BYTE, 10, "S", null, true);
+        regRange("死区范围设置", basic, BASIC_BASE + 17, 1, ConfigFieldDef.FieldType.SCALED_BYTE, 10, "S", null, true, 0, 25.5);
         reg("信号类型", basic, BASIC_BASE + 18, 1, ConfigFieldDef.FieldType.ENUM, 0, null, SIGN_TYPE, true);
         reg("信号故障类型", basic, BASIC_BASE + 19, 1, ConfigFieldDef.FieldType.ENUM, 0, null, ACTION_TYPE, true);
         regRange("信号故障指定位置", basic, BASIC_BASE + 20, 2, ConfigFieldDef.FieldType.SCALED_BYTES2, 10, "%", null, true, 0, 100);

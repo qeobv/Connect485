@@ -206,6 +206,11 @@ public class S1ZConfigModelTest {
         assertNull(model.encodeField(feedback, "25.6"));
         assertNull(model.encodeField(feedback, "30"));
 
+        // 死区范围设置 0~25.5（单字节寄存器 ×0.1 的物理上限）
+        ConfigFieldDef deadZone = find(values, "死区范围设置").def;
+        assertNotNull(model.encodeField(deadZone, "25.5"));
+        assertNull(model.encodeField(deadZone, "25.6"));
+
         // 传感器保护时间 0~25S
         ConfigFieldDef sensorTime = find(values, "传感器保护时间").def;
         assertNotNull(model.encodeField(sensorTime, "25.0"));

@@ -520,7 +520,12 @@ public class ParametersView {
             }
 
             manager.sendData(dataToSend, PAGE_TAG);
-            data.add(new ConfigParam("系统", "数据已发送，使用设备地址: " + currentAddr, ""));
+            data.add(new ConfigParam("系统", "数据已发送，使用设备地址: " + currentAddr + "，正在重新读取配置...", ""));
+
+            // 上传（写配置）后设备可能复位重启，延迟 3 秒重新读回配置并刷新表格
+            PauseTransition delay = new PauseTransition(Duration.millis(3000));
+            delay.setOnFinished(e -> sendInitialCommand());
+            delay.play();
 
         } catch (Exception e) {
             data.add(new ConfigParam("错误", "发送失败: " + e.getMessage(), ""));
@@ -530,8 +535,9 @@ public class ParametersView {
     @FXML
     private void handleDownload() {
         String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-        // 文件名前缀带系列标识（如 g3_config_... / mta_config_...）
-        String series = manager.getProfile().id();
+        // 文件名前缀带系列标识（如 G3_config_... / S1-ZQ_config_...）。
+        // 用系列显示名；文件名不能含 \ / : * ? " < > |，故去掉这些字符（S1-Z/Q -> S1-ZQ）。
+        String series = manager.getProfile().displayName().replaceAll("[\\\\/:*?\"<>|]", "");
 
         FileChooser csvChooser = new FileChooser();
         csvChooser.setTitle("保存配置文件");
